@@ -1,0 +1,8 @@
+.gradle/
+build/
+android/.gradle/
+android/app/build/
+.idea/
+.vscode/
+*.apk
+*.aab

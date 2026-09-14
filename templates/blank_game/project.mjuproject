@@ -1,0 +1,6 @@
+MJU_PROJECT 1
+name "My MJU Game"
+main_scene "main.mju"
+width 1080
+height 1920
+portrait 1

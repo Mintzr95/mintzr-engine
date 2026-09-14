@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+set -e
+if command -v gradle >/dev/null 2>&1; then exec gradle "$@"; fi
+echo 'Gradle wrapper bootstrap is not bundled in this starter. Use a standard Gradle wrapper before local Android builds.'
+exit 1
