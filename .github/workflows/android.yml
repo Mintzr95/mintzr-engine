@@ -14,6 +14,7 @@ concurrency:
 env:
   ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
   ANDROID_HOME: /usr/local/lib/android/sdk
+  ANDROID_NDK_HOME: /usr/local/lib/android/sdk/ndk/27.2.12479018
 
 jobs:
   build:
@@ -43,7 +44,8 @@ jobs:
           test -d "$ANDROID_SDK_ROOT/platforms/android-35"
           test -d "$ANDROID_SDK_ROOT/build-tools/35.0.0"
           test -d "$ANDROID_SDK_ROOT/cmake/3.22.1"
-          test -d "$ANDROID_SDK_ROOT/ndk/27.2.12479018"
+          test -d "$ANDROID_NDK_HOME"
+          echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME"
 
       - name: Set up Gradle 8.13
         uses: gradle/actions/setup-gradle@v4
@@ -62,7 +64,7 @@ jobs:
 
       - name: Build debug APK
         working-directory: android
-        run: gradle --no-daemon --stacktrace --warning-mode all assembleDebug
+        run: gradle --no-daemon --stacktrace --info --warning-mode all assembleDebug
 
       - name: Verify APK
         shell: bash
