@@ -2,6 +2,7 @@
 #include <GLES2/gl2.h>
 #include <cstddef>
 #include "../core/scene.h"
+#include "../core/camera.h"
 #include "sprite_batch.h"
 
 namespace mju {
@@ -12,6 +13,7 @@ public:
     void resize(int w, int h);
     void begin();
     void draw(const Scene& scene);
+    void draw(const Scene& scene, const Camera2D& camera);
     void end();
     void shutdown();
 
