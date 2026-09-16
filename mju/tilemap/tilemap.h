@@ -4,7 +4,7 @@
 #include <vector>
 #include "../core/math.h"
 namespace mju::tilemap {
-struct Rect2{Vec2 position{};Vec2 size{}};
+struct Rect2{Vec2 position{};Vec2 size{};};
 struct Tile{std::int32_t id=-1;std::uint8_t flip=0;};
 class TileMap {
 public:
