@@ -145,12 +145,26 @@ Java_com_mju_engine_EditorActivity_nativeEditorRedo(JNIEnv*, jclass) {
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
+Java_com_mju_engine_EditorActivity_nativeEditorBeginTransform(JNIEnv*, jclass, jint id) {
+    if (!g_editor.select(static_cast<mju::EntityId>(id))) return JNI_FALSE;
+    g_editor.begin_transform();
+    return g_editor.transform_editing() ? JNI_TRUE : JNI_FALSE;
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_mju_engine_EditorActivity_nativeEditorEndTransform(JNIEnv*, jclass) {
+    const bool was_editing = g_editor.transform_editing();
+    g_editor.end_transform();
+    return was_editing ? JNI_TRUE : JNI_FALSE;
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
 Java_com_mju_engine_EditorActivity_nativeEditorSetTransform(JNIEnv*, jclass, jint id, jfloat x, jfloat y) {
     auto* entity = g_editor.scene.find(static_cast<mju::EntityId>(id));
     if (!entity || entity->locked) return JNI_FALSE;
-    g_editor.checkpoint();
+    if (g_editor.selected != static_cast<mju::EntityId>(id)) g_editor.select(static_cast<mju::EntityId>(id));
+    if (!g_editor.transform_editing()) g_editor.begin_transform();
     entity->transform.position = {x, y};
-    g_editor.history.commit(g_editor.scene);
     return JNI_TRUE;
 }
 
@@ -158,6 +172,7 @@ extern "C" JNIEXPORT jboolean JNICALL
 Java_com_mju_engine_EditorActivity_nativeEditorSetName(JNIEnv* env, jclass, jint id, jstring name) {
     auto* entity = g_editor.scene.find(static_cast<mju::EntityId>(id));
     if (!entity || entity->locked || !name) return JNI_FALSE;
+    if (g_editor.transform_editing()) g_editor.end_transform();
     const char* chars = env->GetStringUTFChars(name, nullptr);
     if (!chars) return JNI_FALSE;
     g_editor.checkpoint();
@@ -171,6 +186,7 @@ extern "C" JNIEXPORT jboolean JNICALL
 Java_com_mju_engine_EditorActivity_nativeEditorSetVisibility(JNIEnv*, jclass, jint id, jboolean visible) {
     auto* entity = g_editor.scene.find(static_cast<mju::EntityId>(id));
     if (!entity || entity->locked) return JNI_FALSE;
+    if (g_editor.transform_editing()) g_editor.end_transform();
     g_editor.checkpoint();
     entity->visible = visible == JNI_TRUE;
     entity->sprite.visible = entity->visible;
@@ -182,6 +198,7 @@ extern "C" JNIEXPORT jboolean JNICALL
 Java_com_mju_engine_EditorActivity_nativeEditorSetLocked(JNIEnv*, jclass, jint id, jboolean locked) {
     auto* entity = g_editor.scene.find(static_cast<mju::EntityId>(id));
     if (!entity) return JNI_FALSE;
+    if (g_editor.transform_editing()) g_editor.end_transform();
     g_editor.checkpoint();
     entity->locked = locked == JNI_TRUE;
     g_editor.history.commit(g_editor.scene);
@@ -191,6 +208,7 @@ Java_com_mju_engine_EditorActivity_nativeEditorSetLocked(JNIEnv*, jclass, jint i
 extern "C" JNIEXPORT jboolean JNICALL
 Java_com_mju_engine_EditorActivity_nativeEditorSave(JNIEnv* env, jclass, jstring path) {
     if (!path) return JNI_FALSE;
+    if (g_editor.transform_editing()) g_editor.end_transform();
     const char* chars = env->GetStringUTFChars(path, nullptr);
     if (!chars) return JNI_FALSE;
     const bool ok = g_editor.save(chars);
@@ -200,6 +218,7 @@ Java_com_mju_engine_EditorActivity_nativeEditorSave(JNIEnv* env, jclass, jstring
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_mju_engine_EditorActivity_nativeEditorClear(JNIEnv*, jclass) {
+    if (g_editor.transform_editing()) g_editor.end_transform();
     g_editor.scene.clear();
     g_editor.selected = 0;
     g_editor.history.reset(g_editor.scene);
