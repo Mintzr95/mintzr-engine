@@ -1,0 +1,21 @@
+name: MJU Engine CI
+
+on:
+  push:
+    branches: [main, mju-foundation]
+  pull_request:
+    branches: [main]
+
+jobs:
+  linux-cmake:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Configure
+        run: cmake -S . -B build -DMJU_BUILD_TESTS=ON
+      - name: Build
+        run: cmake --build build --parallel 2
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
