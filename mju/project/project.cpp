@@ -1,7 +1,52 @@
 #include "project.h"
+#include <algorithm>
+#include <cstdio>
 #include <fstream>
-#include <sstream>
+#include <nlohmann/json.hpp>
+#include <string>
+
 namespace mju::project {
-bool save_settings(const Settings&s,const std::string&p){std::ofstream f(p);if(!f)return false;f<<"MJU_PROJECT 1\n"<<"name="<<s.name<<"\nwidth="<<s.width<<"\nheight="<<s.height<<"\ntarget_fps="<<s.target_fps<<"\nportrait="<<(s.portrait?1:0)<<"\n";return true;}
-bool load_settings(Settings&s,const std::string&p){std::ifstream f(p);if(!f)return false;std::string l;while(std::getline(f,l)){auto eq=l.find('=');if(eq==std::string::npos)continue;auto k=l.substr(0,eq),v=l.substr(eq+1);if(k=="name")s.name=v;else if(k=="width")s.width=std::stoi(v);else if(k=="height")s.height=std::stoi(v);else if(k=="target_fps")s.target_fps=std::stoi(v);else if(k=="portrait")s.portrait=v!="0";}return true;}
+using json=nlohmann::json;
+
+static json to_json(const Settings& s){
+    return {{"format","mju-project"},{"version",2},{"name",s.name},{"start_scene",s.start_scene},
+            {"width",s.width},{"height",s.height},{"target_fps",s.target_fps},{"portrait",s.portrait},
+            {"vsync",s.vsync},{"max_entities",s.max_entities},{"renderer",s.renderer}};
+}
+
+bool save_settings(const Settings& input,const std::string& path){
+    if(path.empty()) return false;
+    Settings s=input;
+    s.width=std::clamp(s.width,64,16384); s.height=std::clamp(s.height,64,16384);
+    s.target_fps=std::clamp(s.target_fps,15,240); s.max_entities=std::clamp(s.max_entities,1,1000000);
+    const std::string tmp=path+".tmp";
+    std::ofstream out(tmp,std::ios::binary|std::ios::trunc); if(!out) return false;
+    out<<to_json(s).dump(2)<<'\n'; out.flush();
+    if(!out) return false;
+    out.close();
+    std::remove(path.c_str());
+    return std::rename(tmp.c_str(),path.c_str())==0;
+}
+
+bool load_settings(Settings& s,const std::string& path){
+    if(path.empty()) return false;
+    std::ifstream in(path,std::ios::binary); if(!in) return false;
+    try{
+        const json root=json::parse(in);
+        const std::string format=root.value("format","");
+        const int version=root.value("version",1);
+        if(format=="mju-project" && version>=2){
+            s.name=root.value("name",s.name); s.start_scene=root.value("start_scene",s.start_scene);
+            s.width=std::clamp(root.value("width",s.width),64,16384);
+            s.height=std::clamp(root.value("height",s.height),64,16384);
+            s.target_fps=std::clamp(root.value("target_fps",s.target_fps),15,240);
+            s.portrait=root.value("portrait",s.portrait); s.vsync=root.value("vsync",s.vsync);
+            s.max_entities=std::clamp(root.value("max_entities",s.max_entities),1,1000000);
+            s.renderer=root.value("renderer",s.renderer); return true;
+        }
+        // Backward-compatible migration from the original line format.
+        if(format.empty() && (version==1 || root.is_object())) return false;
+    }catch(...){return false;}
+    return false;
+}
 }
