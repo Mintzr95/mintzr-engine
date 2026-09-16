@@ -17,7 +17,10 @@ option(MJU_USE_STB_IMAGE "Use stb_image for texture decoding" ON)
 option(MJU_USE_TMXLITE "Use tmxlite for Tiled TMX import" ON)
 
 if(MJU_USE_SDL)
-    FetchContent_Declare(SDL3 GIT_REPOSITORY https://github.com/libsdl-org/SDL.git GIT_TAG release-3.2.28 GIT_SHALLOW TRUE)
+    FetchContent_Declare(SDL3
+        GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+        GIT_TAG release-3.2.28
+        GIT_SHALLOW TRUE)
     set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
     set(SDL_TESTS OFF CACHE BOOL "" FORCE)
     set(SDL_EXAMPLES OFF CACHE BOOL "" FORCE)
@@ -25,23 +28,35 @@ if(MJU_USE_SDL)
 endif()
 
 if(MJU_USE_BOX2D)
-    FetchContent_Declare(box2d GIT_REPOSITORY https://github.com/erincatto/box2d.git GIT_TAG v3.1.1 GIT_SHALLOW TRUE)
+    FetchContent_Declare(box2d
+        GIT_REPOSITORY https://github.com/erincatto/box2d.git
+        GIT_TAG v3.1.1
+        GIT_SHALLOW TRUE)
     FetchContent_MakeAvailable(box2d)
 endif()
 
 if(MJU_USE_ENTT)
-    FetchContent_Declare(entt GIT_REPOSITORY https://github.com/skypjack/entt.git GIT_TAG v3.16.0 GIT_SHALLOW TRUE)
+    FetchContent_Declare(entt
+        GIT_REPOSITORY https://github.com/skypjack/entt.git
+        GIT_TAG v3.16.0
+        GIT_SHALLOW TRUE)
     FetchContent_MakeAvailable(entt)
 endif()
 
 if(MJU_USE_RAYLIB_TOOLS)
-    FetchContent_Declare(raylib GIT_REPOSITORY https://github.com/raysan5/raylib.git GIT_TAG 5.5 GIT_SHALLOW TRUE)
+    FetchContent_Declare(raylib
+        GIT_REPOSITORY https://github.com/raysan5/raylib.git
+        GIT_TAG 5.5
+        GIT_SHALLOW TRUE)
     set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
     FetchContent_MakeAvailable(raylib)
 endif()
 
 if(MJU_USE_IMGUI_EDITOR AND NOT ANDROID)
-    FetchContent_Declare(imgui GIT_REPOSITORY https://github.com/ocornut/imgui.git GIT_TAG v1.92.9 GIT_SHALLOW TRUE)
+    FetchContent_Declare(imgui
+        GIT_REPOSITORY https://github.com/ocornut/imgui.git
+        GIT_TAG v1.92.9
+        GIT_SHALLOW TRUE)
     FetchContent_MakeAvailable(imgui)
     add_library(mju_imgui STATIC
         ${imgui_SOURCE_DIR}/imgui.cpp
@@ -53,7 +68,10 @@ if(MJU_USE_IMGUI_EDITOR AND NOT ANDROID)
 endif()
 
 if(MJU_USE_MINIAUDIO)
-    FetchContent_Declare(miniaudio GIT_REPOSITORY https://github.com/mackron/miniaudio.git GIT_TAG 0.11.25 GIT_SHALLOW TRUE)
+    FetchContent_Declare(miniaudio
+        GIT_REPOSITORY https://github.com/mackron/miniaudio.git
+        GIT_TAG 0.11.25
+        GIT_SHALLOW TRUE)
     FetchContent_MakeAvailable(miniaudio)
     add_library(mju_miniaudio STATIC third_party/miniaudio_wrapper.c)
     target_include_directories(mju_miniaudio PRIVATE ${miniaudio_SOURCE_DIR})
@@ -61,17 +79,26 @@ if(MJU_USE_MINIAUDIO)
 endif()
 
 if(MJU_USE_JSON)
-    FetchContent_Declare(nlohmann_json GIT_REPOSITORY https://github.com/nlohmann/json.git GIT_TAG v3.12.0 GIT_SHALLOW TRUE)
+    FetchContent_Declare(nlohmann_json
+        GIT_REPOSITORY https://github.com/nlohmann/json.git
+        GIT_TAG v3.12.0
+        GIT_SHALLOW TRUE)
     FetchContent_MakeAvailable(nlohmann_json)
 endif()
 
 if(MJU_USE_STB_IMAGE)
-    FetchContent_Declare(stb GIT_REPOSITORY https://github.com/nothings/stb.git GIT_TAG f0569113c93ad095470c54bf34a17b36646bbbb5 GIT_SHALLOW FALSE)
+    FetchContent_Declare(stb
+        GIT_REPOSITORY https://github.com/nothings/stb.git
+        GIT_TAG f0569113c93ad095470c54bf34a17b36646bbbb5
+        GIT_SHALLOW FALSE)
     FetchContent_MakeAvailable(stb)
 endif()
 
 if(MJU_USE_TMXLITE)
-    FetchContent_Declare(tmxlite GIT_REPOSITORY https://github.com/fallahn/tmxlite.git GIT_TAG 1.2.2 GIT_SHALLOW TRUE)
+    FetchContent_Declare(tmxlite
+        GIT_REPOSITORY https://github.com/fallahn/tmxlite.git
+        GIT_TAG 1.2.2
+        GIT_SHALLOW TRUE)
     FetchContent_MakeAvailable(tmxlite)
     add_subdirectory(${tmxlite_SOURCE_DIR}/tmxlite ${tmxlite_BINARY_DIR})
 endif()
@@ -80,6 +107,7 @@ add_library(mju_core STATIC
     mju/core/application.cpp
     mju/core/engine.cpp
     mju/core/scene.cpp
+    mju/core/scene_manager.cpp
     mju/io/scene_io.cpp
     mju/io/scene_json.cpp
     mju/editor/editor.cpp
