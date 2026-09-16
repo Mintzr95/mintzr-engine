@@ -46,12 +46,6 @@ public:
     bool undo();
     bool redo();
     void checkpoint();
-    void begin_transform();
-    void end_transform();
-    bool transform_editing() const { return transform_editing_; }
-
-private:
-    bool transform_editing_ = false;
 };
 
 bool save_project(const ProjectSettings& settings, const std::string& path);
