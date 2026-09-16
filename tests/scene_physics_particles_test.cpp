@@ -1,6 +1,7 @@
 #include "mju/core/scene.h"
 #include "mju/physics/physics.h"
 #include "mju/particles/particles.h"
+#include "mju/tilemap/tilemap.h"
 #include <cassert>
 #include <cmath>
 
@@ -31,7 +32,6 @@ int main() {
 
     assert(scene.destroy_entity(duplicate->id));
     assert(scene.find(duplicate->id) == nullptr);
-
     assert(scene.destroy_entity(root.id));
     assert(scene.find(root.id) == nullptr);
     assert(scene.find(child.id) == nullptr);
@@ -51,9 +51,36 @@ int main() {
     auto& bb = world_physics.add_body(b.id, physics::BodyType::Static);
     (void)bb;
 
+    int body_contacts = 0;
+    world_physics.set_contact_callback([&body_contacts](const physics::Contact& contact) {
+        if (!contact.against_tilemap) ++body_contacts;
+    });
     ba.velocity = {100, 0};
     world_physics.step(physics_scene, 0.5f, {0, 0});
+    assert(body_contacts > 0);
     assert(world_physics.overlaps(physics_scene, a.id, b.id) == false || ba.velocity.x <= 0.0f);
+
+    Scene tile_scene;
+    auto& player = tile_scene.create_entity("player");
+    player.transform.position = {16, 8};
+    player.sprite.size = {16, 16};
+    physics::World tile_physics;
+    auto& player_body = tile_physics.add_body(player.id, physics::BodyType::Dynamic);
+    player_body.useGravity = false;
+    player_body.velocity = {0, 40};
+
+    tilemap::TileMap map;
+    assert(map.resize(2, 2));
+    map.set_tileset("", 16, 16, 1);
+    map.set(0, 1, {0, 0});
+
+    int tile_contacts = 0;
+    tile_physics.set_contact_callback([&tile_contacts](const physics::Contact& contact) {
+        if (contact.against_tilemap) ++tile_contacts;
+    });
+    tile_physics.step(tile_scene, 0.4f, {0, 0}, &map);
+    assert(tile_contacts > 0);
+    assert(player.transform.position.y <= 8.01f);
 
     particles::Emitter emitter;
     particles::EmitterConfig cfg;
