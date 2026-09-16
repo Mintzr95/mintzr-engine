@@ -88,11 +88,13 @@ if(MJU_USE_JSON)
 endif()
 
 if(MJU_USE_STB_IMAGE)
+    # This is a commit pin, so keep the full git history instead of a shallow clone.
+    # Shallow checkout of an arbitrary commit is unreliable on some CMake/Git runners.
     FetchContent_Declare(stb
         GIT_REPOSITORY https://github.com/nothings/stb.git
         GIT_TAG f0569113c93ad095470c54bf34a17b36646bbbb5
-        GIT_SHALLOW TRUE)
-    FetchContent_Populate(stb)
+        GIT_SHALLOW FALSE)
+    FetchContent_MakeAvailable(stb)
 endif()
 
 if(MJU_USE_TMXLITE)
