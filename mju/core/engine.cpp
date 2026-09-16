@@ -9,7 +9,11 @@ bool Engine::initialize(int w, int h) {
     height_ = h;
     frame_count_ = 0;
     demo_entity_ = button_entity_ = 0;
-    scene_.clear();
+
+    scene_manager_.clear();
+    active_scene_ = scene_manager_.create("main");
+    if (!active_scene_) return false;
+
     camera_ = {};
     audio_.initialize();
     physics_.clear();
@@ -35,13 +39,13 @@ bool Engine::initialize(int w, int h) {
     particles_.configure(pc);
     particles_.start();
 
-    auto& root = scene_.create_entity("MJU Demo");
+    auto& root = active_scene_->create_entity("MJU Demo");
     demo_entity_ = root.id;
     root.transform.position = {w * 0.5f, h * 0.5f};
     root.sprite.size = {140, 140};
     root.sprite.color = {0.15f, 0.75f, 1.0f, 1.0f};
 
-    auto& button = scene_.create_entity("Touch Button");
+    auto& button = active_scene_->create_entity("Touch Button");
     button_entity_ = button.id;
     button.transform.position = {100.0f, h - 100.0f};
     button.sprite.size = {160, 80};
@@ -49,6 +53,20 @@ bool Engine::initialize(int w, int h) {
 
     console_.info("MJU Engine initialized");
     initialized_ = true;
+    return true;
+}
+
+Scene* Engine::create_scene(const std::string& name) {
+    return scene_manager_.create(name);
+}
+
+bool Engine::open_scene(const std::string& name) {
+    if (!scene_manager_.set_current(name)) return false;
+    active_scene_ = scene_manager_.current();
+    if (!active_scene_) return false;
+    physics_.clear();
+    demo_entity_ = 0;
+    button_entity_ = 0;
     return true;
 }
 
@@ -61,10 +79,10 @@ void Engine::resize(int w, int h) {
 }
 
 void Engine::update(float dt) {
-    if (!initialized_) return;
+    if (!initialized_ || !active_scene_) return;
     dt = std::clamp(dt, 0.0f, 0.1f);
 
-    for (auto& entity : scene_.entities()) {
+    for (auto& entity : active_scene_->entities()) {
         if (entity.id == demo_entity_) {
             entity.transform.rotation += dt * 30.0f;
         }
@@ -88,9 +106,9 @@ void Engine::update(float dt) {
         }
     }
 
-    auto* root = scene_.find(demo_entity_);
+    auto* root = active_scene_->find(demo_entity_);
     const auto touch = input_.primary();
-    auto* button = scene_.find(button_entity_);
+    auto* button = active_scene_->find(button_entity_);
     if (button) {
         const float half_x = button->sprite.size.x * 0.5f;
         const float half_y = button->sprite.size.y * 0.5f;
@@ -109,7 +127,7 @@ void Engine::update(float dt) {
 
     audio_.update(dt);
     const bool has_tiles = tilemap_.width() > 0 && tilemap_.height() > 0;
-    physics_.step(scene_, dt, {0, 0}, has_tiles ? &tilemap_ : nullptr);
+    physics_.step(*active_scene_, dt, {0, 0}, has_tiles ? &tilemap_ : nullptr);
     particles_.update(dt, root ? root->transform.position : Vec2{});
     ++frame_count_;
     console_.next_frame();
@@ -122,7 +140,8 @@ void Engine::shutdown() {
     particles_.clear();
     resources_.clear();
     ui_.clear();
-    scene_.clear();
+    scene_manager_.clear();
+    active_scene_ = nullptr;
     demo_entity_ = button_entity_ = 0;
     console_.info("MJU Engine shutdown");
     initialized_ = false;
