@@ -1,43 +1,48 @@
-# MJU Engine — Third-party notices
+# MJU Engine — third-party notices
 
-MJU is a separate engine architecture. It may use permissively licensed third-party projects as replaceable low-level building blocks. Their licenses remain with their authors and are reproduced/linked here so distribution can preserve the required notices.
+MJU is a separate engine architecture. It may use permissively licensed third-party projects as replaceable low-level building blocks. Their licenses remain with their authors and required notices are preserved here.
 
 ## SDL3
 - Project: https://github.com/libsdl-org/SDL
 - License: zlib
-- Purpose in MJU: platform/window/input/audio plumbing where enabled by CMake.
-- Notice: SDL 2.0 and newer are distributed under the zlib license. See the upstream `LICENSE.txt` file.
+- Purpose in MJU: platform/window/input/lifecycle plumbing.
 
 ## Box2D
 - Project: https://github.com/erincatto/box2d
 - License: MIT
 - Purpose in MJU: optional 2D physics backend behind the MJU physics abstraction.
-- Notice: preserve the Box2D license and copyright notice when distributing binaries containing Box2D.
 
 ## EnTT
 - Project: https://github.com/skypjack/entt
-- License: MIT
+- License: MIT for code
 - Purpose in MJU: optional ECS/storage primitive behind MJU-owned engine systems.
-- Notice: preserve the EnTT license and copyright notice when distributing binaries containing EnTT.
+
+## raylib 5.5
+- Project: https://github.com/raysan5/raylib
+- License: zlib/libpng
+- Purpose in MJU: optional low-level 2D reference/tooling backend. MJU does not copy raylib wholesale.
+- Upstream release: 5.5.
+
+## Dear ImGui 1.92.9
+- Project: https://github.com/ocornut/imgui
+- License: MIT
+- Purpose in MJU: desktop editor/debug tooling only; it is not part of the Android runtime UI.
+- Upstream release: 1.92.9.
+
+## miniaudio 0.11.25
+- Project: https://github.com/mackron/miniaudio
+- License: Public Domain or MIT-0
+- Purpose in MJU: replaceable audio backend with Android support.
+- Upstream release: 0.11.25.
 
 ## Godot Engine
 - Project: https://github.com/godotengine/godot
 - License: MIT
-- Purpose: architectural reference and source-study reference only unless a specific Godot file is deliberately imported after checking its applicable third-party notices.
-- Notice: Godot contains additional third-party components with their own licenses. Do not assume the entire repository has a single license for every embedded dependency.
+- Purpose: architectural/source-study reference only unless a specific file is deliberately imported after checking its applicable third-party notices.
+- Godot contains additional third-party components with their own licenses; this entry does not grant a blanket license for every embedded dependency.
 
-## raylib
-- Project: https://github.com/raysan5/raylib
-- License: zlib/libpng
-- Purpose: implementation and API-design reference for lightweight rendering/input/resource ideas. MJU does not copy raylib wholesale.
+## Import policy
 
-## Policy
+Before copying source code from another repository, MJU must record the upstream repository, exact revision/tag, file or subsystem imported, applicable license, required copyright/attribution, and whether the code is copied, adapted, or merely used as a build dependency.
 
-Before adding source code from another repository, MJU must record:
-1. upstream repository and exact revision/tag;
-2. file or subsystem imported;
-3. applicable license;
-4. required copyright/attribution text;
-5. whether the code is copied, adapted, or merely used as a build dependency.
-
-Permissive license compatibility does not remove the obligation to preserve notices. For code with more restrictive or incompatible licensing, MJU will not import it unless its licensing requirements are explicitly reviewed first.
+The preferred strategy is to fetch or link upstream libraries as replaceable dependencies and expose only MJU-owned APIs to games. Large portions of another game engine are not to be copied into MJU merely to change names or branding.
