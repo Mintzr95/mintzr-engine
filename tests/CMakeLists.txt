@@ -17,3 +17,8 @@ add_executable(mju_animation_tilemap_test animation_tilemap_test.cpp)
 target_include_directories(mju_animation_tilemap_test PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries(mju_animation_tilemap_test PRIVATE mju_core)
 add_test(NAME mju_animation_tilemap_test COMMAND mju_animation_tilemap_test)
+
+add_executable(mju_scene_physics_particles_test scene_physics_particles_test.cpp)
+target_include_directories(mju_scene_physics_particles_test PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries(mju_scene_physics_particles_test PRIVATE mju_core)
+add_test(NAME mju_scene_physics_particles_test COMMAND mju_scene_physics_particles_test)
