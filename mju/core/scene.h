@@ -9,7 +9,22 @@ namespace mju {
 using EntityId = std::uint32_t;
 
 struct Transform2D { Vec2 position{}; Vec2 scale{1,1}; float rotation=0; };
-struct Sprite { Color color{}; Vec2 size{96,96}; bool visible=true; std::string texture; };
+struct Sprite {
+    Color color{};
+    Vec2 size{96,96};
+    bool visible=true;
+    std::string texture;
+    Vec2 uv_min{0,0};
+    Vec2 uv_max{1,1};
+    int frame_width=0;
+    int frame_height=0;
+    int frame=0;
+    int frame_count=1;
+    float fps=0.0f;
+    float animation_time=0.0f;
+    bool animation_loop=true;
+    bool animation_playing=false;
+};
 
 struct Entity {
     EntityId id=0;
