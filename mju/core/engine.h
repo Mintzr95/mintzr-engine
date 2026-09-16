@@ -23,10 +23,12 @@ public:
     void update(float dt);
     void shutdown();
 
-    Scene& scene() { return scene_; }
-    const Scene& scene() const { return scene_; }
+    Scene& scene() { return *active_scene_; }
+    const Scene& scene() const { return *active_scene_; }
     SceneManager& scene_manager() { return scene_manager_; }
     const SceneManager& scene_manager() const { return scene_manager_; }
+    Scene* create_scene(const std::string& name);
+    bool open_scene(const std::string& name);
     Camera2D& camera() { return camera_; }
     const Camera2D& camera() const { return camera_; }
     InputState& input() { return input_; }
@@ -58,8 +60,8 @@ private:
     unsigned long long frame_count_ = 0;
     EntityId demo_entity_ = 0;
     EntityId button_entity_ = 0;
+    Scene* active_scene_ = nullptr;
 
-    Scene scene_;
     SceneManager scene_manager_;
     Camera2D camera_;
     InputState input_;
