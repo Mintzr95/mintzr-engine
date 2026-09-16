@@ -17,6 +17,7 @@ option(MJU_USE_IMGUI_EDITOR "Download Dear ImGui for the desktop editor" ON)
 option(MJU_USE_MINIAUDIO "Download miniaudio for the audio backend" ON)
 option(MJU_USE_JSON "Use nlohmann/json for project and scene serialization" ON)
 option(MJU_USE_STB_IMAGE "Use stb_image for texture decoding" ON)
+option(MJU_USE_TMXLITE "Use tmxlite for Tiled TMX import" ON)
 
 if(MJU_USE_SDL)
     FetchContent_Declare(SDL3 GIT_REPOSITORY https://github.com/libsdl-org/SDL.git GIT_TAG release-3.2.28 GIT_SHALLOW TRUE)
@@ -72,6 +73,12 @@ if(MJU_USE_STB_IMAGE)
     FetchContent_MakeAvailable(stb)
 endif()
 
+if(MJU_USE_TMXLITE)
+    FetchContent_Declare(tmxlite GIT_REPOSITORY https://github.com/fallahn/tmxlite.git GIT_TAG 1.2.2 GIT_SHALLOW TRUE)
+    FetchContent_MakeAvailable(tmxlite)
+    add_subdirectory(${tmxlite_SOURCE_DIR}/tmxlite ${tmxlite_BINARY_DIR})
+endif()
+
 add_library(mju_core STATIC
     mju/core/application.cpp
     mju/core/engine.cpp
@@ -82,13 +89,16 @@ add_library(mju_core STATIC
     mju/assets/asset_manager.cpp
     mju/assets/image_loader.cpp
     mju/tilemap/tilemap.cpp
+    mju/tilemap/tmx_importer.cpp
     mju/ui/ui.cpp
     mju/physics/physics.cpp
     mju/particles/particles.cpp
     mju/resources/resources.cpp
     mju/scripting/script.cpp
     mju/diagnostics/debug.cpp
-    mju/project/project.cpp)
+    mju/project/project.cpp
+    mju/render/sprite_batch.cpp
+    mju/performance/mobile_profile.cpp)
 
 target_include_directories(mju_core PUBLIC mju)
 target_compile_features(mju_core PUBLIC cxx_std_20)
@@ -100,7 +110,8 @@ target_compile_definitions(mju_core PUBLIC
     $<$<BOOL:${MJU_USE_RAYLIB_TOOLS}>:MJU_HAS_RAYLIB_TOOLS=1>
     $<$<BOOL:${MJU_USE_MINIAUDIO}>:MJU_HAS_MINIAUDIO=1>
     $<$<BOOL:${MJU_USE_JSON}>:MJU_HAS_JSON=1>
-    $<$<BOOL:${MJU_USE_STB_IMAGE}>:MJU_HAS_STB_IMAGE=1>)
+    $<$<BOOL:${MJU_USE_STB_IMAGE}>:MJU_HAS_STB_IMAGE=1>
+    $<$<BOOL:${MJU_USE_TMXLITE}>:MJU_HAS_TMXLITE=1>)
 
 if(MJU_USE_SDL)
     target_link_libraries(mju_core PUBLIC SDL3::SDL3)
@@ -122,6 +133,10 @@ if(MJU_USE_JSON)
 endif()
 if(MJU_USE_STB_IMAGE)
     target_include_directories(mju_core PRIVATE ${stb_SOURCE_DIR})
+endif()
+if(MJU_USE_TMXLITE)
+    target_link_libraries(mju_core PUBLIC tmxlite)
+    target_include_directories(mju_core PRIVATE ${tmxlite_SOURCE_DIR}/tmxlite/include)
 endif()
 
 if(ANDROID)
