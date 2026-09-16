@@ -12,3 +12,8 @@ add_executable(mju_sprite_batch_test sprite_batch_test.cpp)
 target_include_directories(mju_sprite_batch_test PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries(mju_sprite_batch_test PRIVATE mju_core)
 add_test(NAME mju_sprite_batch_test COMMAND mju_sprite_batch_test)
+
+add_executable(mju_animation_tilemap_test animation_tilemap_test.cpp)
+target_include_directories(mju_animation_tilemap_test PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries(mju_animation_tilemap_test PRIVATE mju_core)
+add_test(NAME mju_animation_tilemap_test COMMAND mju_animation_tilemap_test)
