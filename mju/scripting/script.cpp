@@ -129,6 +129,7 @@ ScriptResult ScriptVM::execute(Scene& scene,
     auto& state = states_[self];
     std::size_t operations = 0;
     int call_depth = 0;
+    std::string failure_reason = "invalid_or_unsafe_command";
 
     auto value = [&](const std::string& token, float fallback = 0.0f) {
         const auto it = state.variables.find(token);
@@ -143,7 +144,10 @@ ScriptResult ScriptVM::execute(Scene& scene,
 
     run_command = [&](const std::vector<std::string>& tokens) -> bool {
         if (tokens.empty()) return true;
-        if (++operations > kMaxOperations) return false;
+        if (++operations > kMaxOperations) {
+            failure_reason = "execution_limit";
+            return false;
+        }
 
         const std::string& command = tokens[0];
         auto number = [&](std::size_t index, float fallback = 0.0f) {
@@ -168,7 +172,10 @@ ScriptResult ScriptVM::execute(Scene& scene,
         }
         if (command == "div" && tokens.size() >= 3) {
             const float divisor = number(2);
-            if (std::fabs(divisor) < 1e-7f) return false;
+            if (std::fabs(divisor) < 1e-7f) {
+                failure_reason = "division_by_zero";
+                return false;
+            }
             state.variables[tokens[1]] /= divisor;
             return true;
         }
@@ -182,7 +189,10 @@ ScriptResult ScriptVM::execute(Scene& scene,
             const std::vector<std::string> body(tokens.begin() + 4, tokens.end());
             std::size_t iterations = 0;
             while (compare(tokens[2], number(1), number(3))) {
-                if (++iterations > kMaxLoopIterations) return false;
+                if (++iterations > kMaxLoopIterations) {
+                    failure_reason = "loop_limit";
+                    return false;
+                }
                 if (!run_command(body)) return false;
             }
             return true;
@@ -200,7 +210,15 @@ ScriptResult ScriptVM::execute(Scene& scene,
 
         if (command == "call" && tokens.size() == 2) {
             const auto it = functions.find(tokens[1]);
-            if (it == functions.end() || ++call_depth > kMaxCallDepth) return false;
+            if (it == functions.end()) {
+                failure_reason = "function_not_found";
+                return false;
+            }
+            if (++call_depth > kMaxCallDepth) {
+                --call_depth;
+                failure_reason = "call_depth_limit";
+                return false;
+            }
             const bool ok = run_lines(it->second);
             --call_depth;
             return ok;
@@ -216,7 +234,10 @@ ScriptResult ScriptVM::execute(Scene& scene,
             return true;
         }
         if (command == "rotate" && tokens.size() >= 2) {
-            if (entity->locked) return false;
+            if (entity->locked) {
+                failure_reason = "entity_locked";
+                return false;
+            }
             entity->transform.rotation += number(1);
             return true;
         }
@@ -245,24 +266,32 @@ ScriptResult ScriptVM::execute(Scene& scene,
 
         if (command == "velocity" && tokens.size() >= 3 && context.physics) {
             auto* body = context.physics->get_body(self);
-            if (!body) return false;
+            if (!body) {
+                failure_reason = "physics_body_not_found";
+                return false;
+            }
             body->velocity = {number(1), number(2)};
             return true;
         }
         if (command == "gravity_scale" && tokens.size() >= 2 && context.physics) {
             auto* body = context.physics->get_body(self);
-            if (!body) return false;
+            if (!body) {
+                failure_reason = "physics_body_not_found";
+                return false;
+            }
             body->gravityScale = number(1, 1);
             return true;
         }
         if (command == "play" && tokens.size() >= 2 && context.audio) {
-            return context.audio->play(tokens[1]);
+            if (!context.audio->play(tokens[1])) failure_reason = "audio_play_failed";
+            return context.audio->playing(tokens[1]);
         }
         if (command == "sfx" && tokens.size() >= 2 && context.audio) {
             context.audio->play_sfx(tokens[1].c_str());
             return true;
         }
 
+        failure_reason = "invalid_or_unsafe_command";
         return false;
     };
 
@@ -274,10 +303,7 @@ ScriptResult ScriptVM::execute(Scene& scene,
         return true;
     };
 
-    if (!run_lines(main_lines)) {
-        if (operations > kMaxOperations) return {false, "execution_limit", operations};
-        return {false, "invalid_or_unsafe_command", operations};
-    }
+    if (!run_lines(main_lines)) return {false, failure_reason, operations};
     return {true, "ok", operations};
 }
 
