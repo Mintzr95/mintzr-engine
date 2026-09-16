@@ -139,9 +139,9 @@ void World::step(Scene& scene, float dt, Vec2 gravity, const tilemap::TileMap* m
                     b->transform.position += normal * penetration;
                 }
 
+                const Vec2 relative_velocity = body_b->velocity - body_a->velocity;
                 const float relative_normal =
-                    (body_b->velocity - body_a->velocity).x * normal.x +
-                    (body_b->velocity - body_a->velocity).y * normal.y;
+                    relative_velocity.x * normal.x + relative_velocity.y * normal.y;
                 const float inv_a = dynamic_a ? 1.0f / std::max(0.001f, body_a->mass) : 0.0f;
                 const float inv_b = dynamic_b ? 1.0f / std::max(0.001f, body_b->mass) : 0.0f;
                 const float inv_sum = inv_a + inv_b;
@@ -156,8 +156,9 @@ void World::step(Scene& scene, float dt, Vec2 gravity, const tilemap::TileMap* m
                     if (dynamic_b) body_b->velocity += impulse * inv_b;
 
                     const Vec2 tangent{-normal.y, normal.x};
-                    const Vec2 rv = body_b->velocity - body_a->velocity;
-                    const float relative_tangent = rv.x * tangent.x + rv.y * tangent.y;
+                    const Vec2 new_relative_velocity = body_b->velocity - body_a->velocity;
+                    const float relative_tangent =
+                        new_relative_velocity.x * tangent.x + new_relative_velocity.y * tangent.y;
                     const float friction = std::clamp(
                         std::sqrt(std::max(0.0f, body_a->friction * body_b->friction)),
                         0.0f,
@@ -221,10 +222,8 @@ void World::step(Scene& scene, float dt, Vec2 gravity, const tilemap::TileMap* m
                     const float normal_velocity =
                         body.velocity.x * normal.x + body.velocity.y * normal.y;
                     if (normal_velocity > 0.0f) {
-                        body.velocity -= normal * normal_velocity;
-                    }
-                    if (body.restitution > 0.0f && normal_velocity < 0.0f) {
-                        body.velocity -= normal * (normal_velocity * (1.0f + body.restitution));
+                        const float bounce = std::clamp(1.0f + body.restitution, 0.0f, 2.0f);
+                        body.velocity -= normal * (normal_velocity * bounce);
                     }
 
                     notify_contact({id, 0, normal, penetration, x, y, true});
