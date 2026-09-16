@@ -137,6 +137,7 @@ void GLES2Renderer::begin() {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     if (program_) glUseProgram(program_);
     if (viewport_ >= 0) glUniform2f(viewport_, static_cast<float>(width_), static_cast<float>(height_));
+    batch_.begin();
 }
 
 void GLES2Renderer::trim_gpu_textures(std::size_t incoming_bytes) {
@@ -275,7 +276,6 @@ void GLES2Renderer::draw(const Scene& scene, const Camera2D& camera) {
     const float cosine = std::cos(angle);
     const float sine = std::sin(angle);
 
-    batch_.begin();
     for (const auto& entity : scene.entities()) {
         if (!entity.active || !entity.visible || !entity.sprite.visible) continue;
 
@@ -328,8 +328,6 @@ void GLES2Renderer::draw(const Scene& scene, const Camera2D& camera) {
             entity.layer
         });
     }
-    batch_.end();
-    upload_and_draw_batches();
 }
 
 void GLES2Renderer::draw_tilemap(const tilemap::TileMap& map, const Camera2D& camera) {
@@ -353,7 +351,6 @@ void GLES2Renderer::draw_tilemap(const tilemap::TileMap& map, const Camera2D& ca
     if (x1 < x0 || y1 < y0) return;
 
     const GLuint texture = texture_for(map.texture_path());
-    batch_.begin();
     for (int y = y0; y <= y1; ++y) {
         for (int x = x0; x <= x1; ++x) {
             const auto tile = map.get(x, y);
@@ -389,11 +386,20 @@ void GLES2Renderer::draw_tilemap(const tilemap::TileMap& map, const Camera2D& ca
             });
         }
     }
-    batch_.end();
-    upload_and_draw_batches();
+}
+
+void GLES2Renderer::draw_scene_and_tilemap(const Scene& scene,
+                                            const tilemap::TileMap& map,
+                                            const Camera2D& camera) {
+    begin();
+    draw(scene, camera);
+    draw_tilemap(map, camera);
+    end();
 }
 
 void GLES2Renderer::end() {
+    batch_.end();
+    upload_and_draw_batches();
     glDisable(GL_BLEND);
 }
 
