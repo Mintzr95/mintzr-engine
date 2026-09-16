@@ -6,51 +6,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 include(FetchContent)
 
-option(MJU_USE_SDL "Use SDL3 for optional desktop platform/window/input plumbing" OFF)
-option(MJU_USE_BOX2D "Use Box2D as an optional physics backend" OFF)
-option(MJU_USE_ENTT "Use EnTT as an optional ECS backend" OFF)
-option(MJU_USE_RAYLIB_TOOLS "Download raylib for optional 2D reference tooling" OFF)
-option(MJU_USE_IMGUI_EDITOR "Download Dear ImGui for the desktop editor" ON)
+option(MJU_USE_IMGUI_EDITOR "Build the optional desktop editor UI" ON)
 option(MJU_USE_MINIAUDIO "Use miniaudio for the audio backend" ON)
 option(MJU_USE_JSON "Use nlohmann/json for project and scene serialization" ON)
 option(MJU_USE_STB_IMAGE "Use stb_image for texture decoding" ON)
 option(MJU_USE_TMXLITE "Use tmxlite for Tiled TMX import" ON)
-
-if(MJU_USE_SDL)
-    FetchContent_Declare(SDL3
-        GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
-        GIT_TAG release-3.2.28
-        GIT_SHALLOW TRUE)
-    set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
-    set(SDL_TESTS OFF CACHE BOOL "" FORCE)
-    set(SDL_EXAMPLES OFF CACHE BOOL "" FORCE)
-    FetchContent_MakeAvailable(SDL3)
-endif()
-
-if(MJU_USE_BOX2D)
-    FetchContent_Declare(box2d
-        GIT_REPOSITORY https://github.com/erincatto/box2d.git
-        GIT_TAG v3.1.1
-        GIT_SHALLOW TRUE)
-    FetchContent_MakeAvailable(box2d)
-endif()
-
-if(MJU_USE_ENTT)
-    FetchContent_Declare(entt
-        GIT_REPOSITORY https://github.com/skypjack/entt.git
-        GIT_TAG v3.16.0
-        GIT_SHALLOW TRUE)
-    FetchContent_MakeAvailable(entt)
-endif()
-
-if(MJU_USE_RAYLIB_TOOLS)
-    FetchContent_Declare(raylib
-        GIT_REPOSITORY https://github.com/raysan5/raylib.git
-        GIT_TAG 5.5
-        GIT_SHALLOW TRUE)
-    set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-    FetchContent_MakeAvailable(raylib)
-endif()
 
 if(MJU_USE_IMGUI_EDITOR AND NOT ANDROID)
     FetchContent_Declare(imgui
@@ -130,33 +90,17 @@ add_library(mju_core STATIC
 target_include_directories(mju_core PUBLIC mju)
 target_compile_features(mju_core PUBLIC cxx_std_20)
 
-if(MJU_USE_MINIAUDIO)
-    target_include_directories(mju_core PRIVATE ${miniaudio_SOURCE_DIR})
-endif()
-
 target_compile_definitions(mju_core PUBLIC
-    $<$<BOOL:${MJU_USE_SDL}>:MJU_HAS_SDL=1>
-    $<$<BOOL:${MJU_USE_BOX2D}>:MJU_HAS_BOX2D=1>
-    $<$<BOOL:${MJU_USE_ENTT}>:MJU_HAS_ENTT=1>
-    $<$<BOOL:${MJU_USE_RAYLIB_TOOLS}>:MJU_HAS_RAYLIB_TOOLS=1>
     $<$<BOOL:${MJU_USE_MINIAUDIO}>:MJU_HAS_MINIAUDIO=1>
     $<$<BOOL:${MJU_USE_JSON}>:MJU_HAS_JSON=1>
     $<$<BOOL:${MJU_USE_STB_IMAGE}>:MJU_HAS_STB_IMAGE=1>
     $<$<BOOL:${MJU_USE_TMXLITE}>:MJU_HAS_TMXLITE=1>)
 
-if(MJU_USE_SDL)
-    target_link_libraries(mju_core PUBLIC SDL3::SDL3)
-endif()
-if(MJU_USE_BOX2D)
-    target_link_libraries(mju_core PUBLIC box2d)
-endif()
-if(MJU_USE_ENTT)
-    target_link_libraries(mju_core PUBLIC EnTT::EnTT)
-endif()
 if(MJU_USE_IMGUI_EDITOR AND NOT ANDROID)
     target_link_libraries(mju_core PUBLIC mju_imgui)
 endif()
 if(MJU_USE_MINIAUDIO)
+    target_include_directories(mju_core PRIVATE ${miniaudio_SOURCE_DIR})
     target_link_libraries(mju_core PUBLIC mju_miniaudio)
 endif()
 if(MJU_USE_JSON)
