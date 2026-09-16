@@ -74,16 +74,21 @@ bool ScriptVM::parse_blocks(const std::string& source,
         if ((tokens[0] == "fn" || tokens[0] == "event") && tokens.size() == 2) {
             const std::string name = tokens[1];
             const std::string end_token = tokens[0] == "fn" ? "endfn" : "endevent";
-            const std::size_t body_start = index;
-            Lines block = collect_block(lines, index, end_token);
-            if (index > lines.size()) {
+            Lines block;
+            bool found_end = false;
+            while (index < lines.size()) {
+                const std::string body_line = trim(lines[index++]);
+                if (body_line == end_token) {
+                    found_end = true;
+                    break;
+                }
+                block.push_back(body_line);
+            }
+            if (!found_end) {
                 error = "missing_" + end_token;
                 return false;
             }
-            if (block.empty() && body_start < lines.size() && lines[index - 1] != end_token) {
-                error = "missing_" + end_token;
-                return false;
-            }
+
             auto& table = tokens[0] == "fn" ? functions : events;
             if (!table.emplace(name, std::move(block)).second) {
                 error = "duplicate_" + tokens[0] + "_" + name;
@@ -102,11 +107,8 @@ bool ScriptVM::parse_blocks(const std::string& source,
 }
 
 void ScriptVM::clear_state(EntityId entity) {
-    if (entity == 0) {
-        states_.clear();
-    } else {
-        states_.erase(entity);
-    }
+    if (entity == 0) states_.clear();
+    else states_.erase(entity);
 }
 
 ScriptResult ScriptVM::execute(Scene& scene,
@@ -177,7 +179,7 @@ ScriptResult ScriptVM::execute(Scene& scene,
                 if (!condition) return true;
                 return run_command({tokens.begin() + 4, tokens.end()});
             }
-            std::vector<std::string> body(tokens.begin() + 4, tokens.end());
+            const std::vector<std::string> body(tokens.begin() + 4, tokens.end());
             std::size_t iterations = 0;
             while (compare(tokens[2], number(1), number(3))) {
                 if (++iterations > kMaxLoopIterations) return false;
@@ -189,7 +191,7 @@ ScriptResult ScriptVM::execute(Scene& scene,
         if (command == "repeat" && tokens.size() >= 3) {
             const auto count = static_cast<std::size_t>(std::clamp(number(1), 0.0f,
                                                                      static_cast<float>(kMaxLoopIterations)));
-            std::vector<std::string> body(tokens.begin() + 2, tokens.end());
+            const std::vector<std::string> body(tokens.begin() + 2, tokens.end());
             for (std::size_t i = 0; i < count; ++i) {
                 if (!run_command(body)) return false;
             }
@@ -214,7 +216,7 @@ ScriptResult ScriptVM::execute(Scene& scene,
             return true;
         }
         if (command == "rotate" && tokens.size() >= 2) {
-            if (!entity->transform.rotation && entity->locked) return false;
+            if (entity->locked) return false;
             entity->transform.rotation += number(1);
             return true;
         }
@@ -267,8 +269,7 @@ ScriptResult ScriptVM::execute(Scene& scene,
     run_lines = [&](const Lines& lines) -> bool {
         for (const std::string& raw_line : lines) {
             if (is_comment_or_empty(raw_line)) continue;
-            const auto tokens = split(raw_line);
-            if (!run_command(tokens)) return false;
+            if (!run_command(split(raw_line))) return false;
         }
         return true;
     };
@@ -285,9 +286,6 @@ ScriptResult ScriptVM::execute_event(Scene& scene,
                                      const std::string& source,
                                      const std::string& event,
                                      ScriptContext context) {
-    Entity* entity = scene.find(self);
-    if (!entity) return {false, "entity_not_found", 0};
-
     Lines main_lines;
     std::unordered_map<std::string, Lines> functions;
     std::unordered_map<std::string, Lines> events;
@@ -295,20 +293,21 @@ ScriptResult ScriptVM::execute_event(Scene& scene,
     if (!parse_blocks(source, main_lines, functions, events, parse_error)) {
         return {false, parse_error, 0};
     }
-    const auto it = events.find(event);
-    if (it == events.end()) return {false, "event_not_found", 0};
+    (void)main_lines;
 
-    std::ostringstream reconstructed;
-    for (const auto& line : main_lines) reconstructed << line << '\n';
+    const auto event_it = events.find(event);
+    if (event_it == events.end()) return {false, "event_not_found", 0};
+
+    std::ostringstream event_program;
     for (const auto& [name, body] : functions) {
-        reconstructed << "fn " << name << '\n';
-        for (const auto& line : body) reconstructed << line << '\n';
-        reconstructed << "endfn\n";
+        event_program << "fn " << name << '\n';
+        for (const auto& line : body) event_program << line << '\n';
+        event_program << "endfn\n";
     }
-    reconstructed << "fn __event_runner\n";
-    for (const auto& line : it->second) reconstructed << line << '\n';
-    reconstructed << "endfn\ncall __event_runner\n";
-    return execute(scene, self, reconstructed.str(), context);
+    event_program << "fn __event_runner\n";
+    for (const auto& line : event_it->second) event_program << line << '\n';
+    event_program << "endfn\ncall __event_runner\n";
+    return execute(scene, self, event_program.str(), context);
 }
 
 }
