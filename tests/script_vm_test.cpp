@@ -42,6 +42,6 @@ int main() {
 
     const auto unsafe = vm.execute(scene, entity.id, "while 1 == 1 add counter 1", context);
     assert(!unsafe.ok);
-    assert(unsafe.message == "execution_limit");
+    assert(unsafe.message == "loop_limit");
     return 0;
 }
