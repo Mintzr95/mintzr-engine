@@ -1,5 +1,6 @@
 #include "editor.h"
 #include "../io/scene_io.h"
+#include <algorithm>
 #include <cmath>
 #include <fstream>
 #include <iomanip>
