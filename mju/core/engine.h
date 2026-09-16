@@ -26,6 +26,8 @@ public:
  project::Settings& settings(){return settings_;} const project::Settings& settings()const{return settings_;}
  int width()const{return width_;} int height()const{return height_;} bool initialized()const{return initialized_;} unsigned long long frame_count()const{return frame_count_;}
 private:
- int width_=0,height_=0; bool initialized_=false; unsigned long long frame_count_=0; Scene scene_; Camera2D camera_; InputState input_; AnimationLibrary animations_; AudioSystem audio_; physics::World physics_; particles::Emitter particles_; resources::ResourceCatalog resources_; tilemap::TileMap tilemap_; ui::Canvas ui_; scripting::ScriptVM scripts_; debug::Console console_; project::Settings settings_;
+ int width_=0,height_=0; bool initialized_=false; unsigned long long frame_count_=0;
+ EntityId demo_entity_=0,button_entity_=0;
+ Scene scene_; Camera2D camera_; InputState input_; AnimationLibrary animations_; AudioSystem audio_; physics::World physics_; particles::Emitter particles_; resources::ResourceCatalog resources_; tilemap::TileMap tilemap_; ui::Canvas ui_; scripting::ScriptVM scripts_; debug::Console console_; project::Settings settings_;
 };
 }
