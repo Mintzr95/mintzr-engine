@@ -1,6 +1,7 @@
 #include "renderer_gles2.h"
 #include <cmath>
 #include <cstdio>
+#include <cstddef>
 #include <vector>
 
 namespace mju {
@@ -8,6 +9,7 @@ namespace mju {
 namespace {
 struct Vertex { float x, y, r, g, b, a; };
 constexpr std::size_t kMaxVertices = 16384;
+constexpr float kMinZoom = 0.01f;
 }
 
 bool GLES2Renderer::check_shader(GLuint shader, const char* stage) {
@@ -98,16 +100,38 @@ void GLES2Renderer::begin() {
 }
 
 void GLES2Renderer::draw(const Scene& scene) {
+    draw(scene, Camera2D{});
+}
+
+void GLES2Renderer::draw(const Scene& scene, const Camera2D& camera) {
     if (!program_) return;
+
+    const float zoom = std::max(kMinZoom, camera.zoom);
+    const float half_width = static_cast<float>(width_) * 0.5f / zoom;
+    const float half_height = static_cast<float>(height_) * 0.5f / zoom;
 
     batch_.begin();
     for (const auto& e : scene.entities()) {
         if (!e.active || !e.visible || !e.sprite.visible) continue;
+
+        const float sx = std::fabs(e.transform.scale.x);
+        const float sy = std::fabs(e.transform.scale.y);
+        const float world_half_w = std::max(1.0f, e.sprite.size.x * sx * 0.5f);
+        const float world_half_h = std::max(1.0f, e.sprite.size.y * sy * 0.5f);
+        const float dx = std::fabs(e.transform.position.x - camera.position.x);
+        const float dy = std::fabs(e.transform.position.y - camera.position.y);
+        if (dx > half_width + world_half_w || dy > half_height + world_half_h) continue;
+
+        const Vec2 screen_position{
+            (e.transform.position.x - camera.position.x) * zoom + static_cast<float>(width_) * 0.5f,
+            (e.transform.position.y - camera.position.y) * zoom + static_cast<float>(height_) * 0.5f
+        };
+
         batch_.submit({
-            e.transform.position,
-            {e.sprite.size.x * e.transform.scale.x, e.sprite.size.y * e.transform.scale.y},
+            screen_position,
+            {e.sprite.size.x * sx * zoom, e.sprite.size.y * sy * zoom},
             {0.0f, 0.0f}, {1.0f, 1.0f},
-            e.transform.rotation,
+            e.transform.rotation - camera.rotation,
             e.sprite.color,
             0,
             e.layer
