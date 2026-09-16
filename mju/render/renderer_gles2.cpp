@@ -1,4 +1,5 @@
 #include "renderer_gles2.h"
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstddef>
@@ -109,6 +110,9 @@ void GLES2Renderer::draw(const Scene& scene, const Camera2D& camera) {
     const float zoom = std::max(kMinZoom, camera.zoom);
     const float half_width = static_cast<float>(width_) * 0.5f / zoom;
     const float half_height = static_cast<float>(height_) * 0.5f / zoom;
+    const float angle = -camera.rotation * 3.14159265358979323846f / 180.0f;
+    const float cam_c = std::cos(angle);
+    const float cam_s = std::sin(angle);
 
     batch_.begin();
     for (const auto& e : scene.entities()) {
@@ -122,9 +126,15 @@ void GLES2Renderer::draw(const Scene& scene, const Camera2D& camera) {
         const float dy = std::fabs(e.transform.position.y - camera.position.y);
         if (dx > half_width + world_half_w || dy > half_height + world_half_h) continue;
 
+        const float relative_x = e.transform.position.x - camera.position.x;
+        const float relative_y = e.transform.position.y - camera.position.y;
+        const Vec2 rotated_relative{
+            relative_x * cam_c - relative_y * cam_s,
+            relative_x * cam_s + relative_y * cam_c
+        };
         const Vec2 screen_position{
-            (e.transform.position.x - camera.position.x) * zoom + static_cast<float>(width_) * 0.5f,
-            (e.transform.position.y - camera.position.y) * zoom + static_cast<float>(height_) * 0.5f
+            rotated_relative.x * zoom + static_cast<float>(width_) * 0.5f,
+            rotated_relative.y * zoom + static_cast<float>(height_) * 0.5f
         };
 
         batch_.submit({
