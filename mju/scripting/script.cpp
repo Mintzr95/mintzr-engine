@@ -4,22 +4,311 @@
 #include <cstdlib>
 #include <functional>
 #include <sstream>
-#include <unordered_map>
 
 namespace mju::scripting {
-std::vector<std::string> ScriptVM::split(const std::string&line){std::istringstream ss(line);std::vector<std::string>out;std::string s;while(ss>>s)out.push_back(s);return out;}
-ScriptResult ScriptVM::execute(Scene&scene,EntityId self,const std::string&source){
- Entity*e=scene.find(self);if(!e)return{false,"entity_not_found"};std::unordered_map<std::string,float>vars;std::size_t operations=0;constexpr std::size_t max_operations=4096;constexpr int max_depth=8;
- std::function<bool(const std::vector<std::string>&,int)>run;
- auto value=[&](const std::string&s,float def=0.0f){auto it=vars.find(s);if(it!=vars.end())return it->second;char*end=nullptr;const float v=std::strtof(s.c_str(),&end);return end&&*end=='\0'?v:def;};
- auto truth=[&](const std::string&op,float a,float b){if(op=="==")return a==b;if(op=="!=")return a!=b;if(op=="<")return a<b;if(op=="<=")return a<=b;if(op==">")return a>b;if(op==">=")return a>=b;return false;};
- run=[&](const std::vector<std::string>&t,int depth)->bool{
-  if(++operations>max_operations||depth>max_depth)return false;if(t.empty())return true;const auto&cmd=t[0];auto num=[&](std::size_t i,float def=0.0f){return i<t.size()?value(t[i],def):def;};
-  if(cmd=="set"&&t.size()>=3){vars[t[1]]=num(2);return true;}if(cmd=="add"&&t.size()>=3){vars[t[1]]+=num(2);return true;}if(cmd=="sub"&&t.size()>=3){vars[t[1]]-=num(2);return true;}if(cmd=="mul"&&t.size()>=3){vars[t[1]]*=num(2);return true;}if(cmd=="div"&&t.size()>=3){const float d=num(2);if(std::fabs(d)<1e-7f)return false;vars[t[1]]/=d;return true;}
-  if(cmd=="if"&&t.size()>=5){if(!truth(t[2],num(1),num(3)))return true;return run(std::vector<std::string>(t.begin()+4,t.end()),depth+1);}if(cmd=="repeat"&&t.size()>=3){const int count=std::clamp((int)num(1),0,256);std::vector<std::string>tail(t.begin()+2,t.end());for(int i=0;i<count;++i)if(!run(tail,depth+1))return false;return true;}
-  if(cmd=="move"&&t.size()>=3){e->transform.position.x+=num(1);e->transform.position.y+=num(2);return true;}if(cmd=="setpos"&&t.size()>=3){e->transform.position={num(1),num(2)};return true;}if(cmd=="rotate"&&t.size()>=2){e->transform.rotation+=num(1);return true;}if(cmd=="scale"&&t.size()>=3){e->transform.scale={num(1,1),num(2,1)};return true;}if(cmd=="visible"&&t.size()>=2){e->visible=num(1)!=0.0f;e->sprite.visible=e->visible;return true;}if(cmd=="color"&&t.size()>=4){e->sprite.color.r=num(1);e->sprite.color.g=num(2);e->sprite.color.b=num(3);if(t.size()>=5)e->sprite.color.a=num(4,1);return true;}if(cmd=="name"&&t.size()>=2){std::string joined=t[1];for(std::size_t i=2;i<t.size();++i)joined+=' '+t[i];e->name=joined;return true;}return false;
- };
- std::istringstream lines(source);std::string line;std::size_t n=0;while(std::getline(lines,line)){++n;auto t=split(line);if(t.empty()||t[0].rfind("#",0)==0)continue;if(!run(t,0)){if(operations>max_operations)return{false,"execution_limit"};return{false,"line_"+std::to_string(n)+"_invalid_or_unsafe"};}}
- return{true,"ok"};
+
+namespace {
+constexpr std::size_t kMaxOperations = 4096;
+constexpr std::size_t kMaxLoopIterations = 256;
+constexpr int kMaxCallDepth = 16;
+
+bool compare(const std::string& op, float a, float b) {
+    if (op == "==") return a == b;
+    if (op == "!=") return a != b;
+    if (op == "<") return a < b;
+    if (op == "<=") return a <= b;
+    if (op == ">") return a > b;
+    if (op == ">=") return a >= b;
+    return false;
 }
+}
+
+std::vector<std::string> ScriptVM::split(const std::string& line) {
+    std::istringstream stream(line);
+    std::vector<std::string> tokens;
+    std::string token;
+    while (stream >> token) tokens.push_back(token);
+    return tokens;
+}
+
+std::string ScriptVM::trim(const std::string& line) {
+    const auto first = line.find_first_not_of(" \t\r\n");
+    if (first == std::string::npos) return {};
+    const auto last = line.find_last_not_of(" \t\r\n");
+    return line.substr(first, last - first + 1);
+}
+
+bool ScriptVM::is_comment_or_empty(const std::string& line) {
+    const std::string value = trim(line);
+    return value.empty() || value[0] == '#';
+}
+
+ScriptVM::Lines ScriptVM::collect_block(const std::vector<std::string>& lines,
+                                        std::size_t& index,
+                                        const std::string& end_token) {
+    Lines block;
+    while (index < lines.size()) {
+        const std::string line = trim(lines[index++]);
+        if (line == end_token) return block;
+        block.push_back(line);
+    }
+    return {};
+}
+
+bool ScriptVM::parse_blocks(const std::string& source,
+                            Lines& main_lines,
+                            std::unordered_map<std::string, Lines>& functions,
+                            std::unordered_map<std::string, Lines>& events,
+                            std::string& error) {
+    std::vector<std::string> lines;
+    std::istringstream stream(source);
+    std::string line;
+    while (std::getline(stream, line)) lines.push_back(trim(line));
+
+    for (std::size_t index = 0; index < lines.size();) {
+        const std::string current = lines[index++];
+        if (is_comment_or_empty(current)) continue;
+        const auto tokens = split(current);
+        if (tokens.empty()) continue;
+
+        if ((tokens[0] == "fn" || tokens[0] == "event") && tokens.size() == 2) {
+            const std::string name = tokens[1];
+            const std::string end_token = tokens[0] == "fn" ? "endfn" : "endevent";
+            const std::size_t body_start = index;
+            Lines block = collect_block(lines, index, end_token);
+            if (index > lines.size()) {
+                error = "missing_" + end_token;
+                return false;
+            }
+            if (block.empty() && body_start < lines.size() && lines[index - 1] != end_token) {
+                error = "missing_" + end_token;
+                return false;
+            }
+            auto& table = tokens[0] == "fn" ? functions : events;
+            if (!table.emplace(name, std::move(block)).second) {
+                error = "duplicate_" + tokens[0] + "_" + name;
+                return false;
+            }
+            continue;
+        }
+
+        if (tokens[0] == "endfn" || tokens[0] == "endevent") {
+            error = "unexpected_" + tokens[0];
+            return false;
+        }
+        main_lines.push_back(current);
+    }
+    return true;
+}
+
+void ScriptVM::clear_state(EntityId entity) {
+    if (entity == 0) {
+        states_.clear();
+    } else {
+        states_.erase(entity);
+    }
+}
+
+ScriptResult ScriptVM::execute(Scene& scene,
+                               EntityId self,
+                               const std::string& source,
+                               ScriptContext context) {
+    Entity* entity = scene.find(self);
+    if (!entity) return {false, "entity_not_found", 0};
+
+    Lines main_lines;
+    std::unordered_map<std::string, Lines> functions;
+    std::unordered_map<std::string, Lines> events;
+    std::string parse_error;
+    if (!parse_blocks(source, main_lines, functions, events, parse_error)) {
+        return {false, parse_error, 0};
+    }
+
+    auto& state = states_[self];
+    std::size_t operations = 0;
+    int call_depth = 0;
+
+    auto value = [&](const std::string& token, float fallback = 0.0f) {
+        const auto it = state.variables.find(token);
+        if (it != state.variables.end()) return it->second;
+        char* end = nullptr;
+        const float parsed = std::strtof(token.c_str(), &end);
+        return end && *end == '\0' ? parsed : fallback;
+    };
+
+    std::function<bool(const Lines&)> run_lines;
+    std::function<bool(const std::vector<std::string>&)> run_command;
+
+    run_command = [&](const std::vector<std::string>& tokens) -> bool {
+        if (tokens.empty()) return true;
+        if (++operations > kMaxOperations) return false;
+
+        const std::string& command = tokens[0];
+        auto number = [&](std::size_t index, float fallback = 0.0f) {
+            return index < tokens.size() ? value(tokens[index], fallback) : fallback;
+        };
+
+        if (command == "set" && tokens.size() >= 3) {
+            state.variables[tokens[1]] = number(2);
+            return true;
+        }
+        if (command == "add" && tokens.size() >= 3) {
+            state.variables[tokens[1]] += number(2);
+            return true;
+        }
+        if (command == "sub" && tokens.size() >= 3) {
+            state.variables[tokens[1]] -= number(2);
+            return true;
+        }
+        if (command == "mul" && tokens.size() >= 3) {
+            state.variables[tokens[1]] *= number(2);
+            return true;
+        }
+        if (command == "div" && tokens.size() >= 3) {
+            const float divisor = number(2);
+            if (std::fabs(divisor) < 1e-7f) return false;
+            state.variables[tokens[1]] /= divisor;
+            return true;
+        }
+
+        if ((command == "if" || command == "while") && tokens.size() >= 5) {
+            const bool condition = compare(tokens[2], number(1), number(3));
+            if (command == "if") {
+                if (!condition) return true;
+                return run_command({tokens.begin() + 4, tokens.end()});
+            }
+            std::vector<std::string> body(tokens.begin() + 4, tokens.end());
+            std::size_t iterations = 0;
+            while (compare(tokens[2], number(1), number(3))) {
+                if (++iterations > kMaxLoopIterations) return false;
+                if (!run_command(body)) return false;
+            }
+            return true;
+        }
+
+        if (command == "repeat" && tokens.size() >= 3) {
+            const auto count = static_cast<std::size_t>(std::clamp(number(1), 0.0f,
+                                                                     static_cast<float>(kMaxLoopIterations)));
+            std::vector<std::string> body(tokens.begin() + 2, tokens.end());
+            for (std::size_t i = 0; i < count; ++i) {
+                if (!run_command(body)) return false;
+            }
+            return true;
+        }
+
+        if (command == "call" && tokens.size() == 2) {
+            const auto it = functions.find(tokens[1]);
+            if (it == functions.end() || ++call_depth > kMaxCallDepth) return false;
+            const bool ok = run_lines(it->second);
+            --call_depth;
+            return ok;
+        }
+
+        if (command == "move" && tokens.size() >= 3) {
+            entity->transform.position.x += number(1);
+            entity->transform.position.y += number(2);
+            return true;
+        }
+        if (command == "setpos" && tokens.size() >= 3) {
+            entity->transform.position = {number(1), number(2)};
+            return true;
+        }
+        if (command == "rotate" && tokens.size() >= 2) {
+            if (!entity->transform.rotation && entity->locked) return false;
+            entity->transform.rotation += number(1);
+            return true;
+        }
+        if (command == "scale" && tokens.size() >= 3) {
+            entity->transform.scale = {number(1, 1), number(2, 1)};
+            return true;
+        }
+        if (command == "visible" && tokens.size() >= 2) {
+            entity->visible = number(1) != 0.0f;
+            entity->sprite.visible = entity->visible;
+            return true;
+        }
+        if (command == "color" && tokens.size() >= 4) {
+            entity->sprite.color.r = number(1);
+            entity->sprite.color.g = number(2);
+            entity->sprite.color.b = number(3);
+            if (tokens.size() >= 5) entity->sprite.color.a = number(4, 1);
+            return true;
+        }
+        if (command == "name" && tokens.size() >= 2) {
+            std::string joined = tokens[1];
+            for (std::size_t i = 2; i < tokens.size(); ++i) joined += ' ' + tokens[i];
+            entity->name = joined;
+            return true;
+        }
+
+        if (command == "velocity" && tokens.size() >= 3 && context.physics) {
+            auto* body = context.physics->get_body(self);
+            if (!body) return false;
+            body->velocity = {number(1), number(2)};
+            return true;
+        }
+        if (command == "gravity_scale" && tokens.size() >= 2 && context.physics) {
+            auto* body = context.physics->get_body(self);
+            if (!body) return false;
+            body->gravityScale = number(1, 1);
+            return true;
+        }
+        if (command == "play" && tokens.size() >= 2 && context.audio) {
+            return context.audio->play(tokens[1]);
+        }
+        if (command == "sfx" && tokens.size() >= 2 && context.audio) {
+            context.audio->play_sfx(tokens[1].c_str());
+            return true;
+        }
+
+        return false;
+    };
+
+    run_lines = [&](const Lines& lines) -> bool {
+        for (const std::string& raw_line : lines) {
+            if (is_comment_or_empty(raw_line)) continue;
+            const auto tokens = split(raw_line);
+            if (!run_command(tokens)) return false;
+        }
+        return true;
+    };
+
+    if (!run_lines(main_lines)) {
+        if (operations > kMaxOperations) return {false, "execution_limit", operations};
+        return {false, "invalid_or_unsafe_command", operations};
+    }
+    return {true, "ok", operations};
+}
+
+ScriptResult ScriptVM::execute_event(Scene& scene,
+                                     EntityId self,
+                                     const std::string& source,
+                                     const std::string& event,
+                                     ScriptContext context) {
+    Entity* entity = scene.find(self);
+    if (!entity) return {false, "entity_not_found", 0};
+
+    Lines main_lines;
+    std::unordered_map<std::string, Lines> functions;
+    std::unordered_map<std::string, Lines> events;
+    std::string parse_error;
+    if (!parse_blocks(source, main_lines, functions, events, parse_error)) {
+        return {false, parse_error, 0};
+    }
+    const auto it = events.find(event);
+    if (it == events.end()) return {false, "event_not_found", 0};
+
+    std::ostringstream reconstructed;
+    for (const auto& line : main_lines) reconstructed << line << '\n';
+    for (const auto& [name, body] : functions) {
+        reconstructed << "fn " << name << '\n';
+        for (const auto& line : body) reconstructed << line << '\n';
+        reconstructed << "endfn\n";
+    }
+    reconstructed << "fn __event_runner\n";
+    for (const auto& line : it->second) reconstructed << line << '\n';
+    reconstructed << "endfn\ncall __event_runner\n";
+    return execute(scene, self, reconstructed.str(), context);
+}
+
 }
