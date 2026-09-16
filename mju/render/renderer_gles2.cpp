@@ -1,13 +1,13 @@
 #include "renderer_gles2.h"
-#include <array>
 #include <cmath>
 #include <cstdio>
+#include <vector>
 
 namespace mju {
 
 namespace {
 struct Vertex { float x, y, r, g, b, a; };
-constexpr std::size_t kMaxQuads = 4096;
+constexpr std::size_t kMaxVertices = 16384;
 }
 
 bool GLES2Renderer::check_shader(GLuint shader, const char* stage) {
@@ -70,8 +70,15 @@ bool GLES2Renderer::initialize() {
         shutdown();
         return false;
     }
+
     pos_ = 0;
     color_ = 1;
+    glGenBuffers(1, &vertex_buffer_);
+    glGenBuffers(1, &index_buffer_);
+    if (!vertex_buffer_ || !index_buffer_) {
+        shutdown();
+        return false;
+    }
     return true;
 }
 
@@ -84,6 +91,7 @@ void GLES2Renderer::resize(int w, int h) {
 void GLES2Renderer::begin() {
     last_quad_count_ = 0;
     last_vertex_count_ = 0;
+    last_batch_count_ = 0;
     glClearColor(0.035f, 0.045f, 0.065f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
     if (program_) glUseProgram(program_);
@@ -92,50 +100,82 @@ void GLES2Renderer::begin() {
 void GLES2Renderer::draw(const Scene& scene) {
     if (!program_) return;
 
-    std::array<Vertex, kMaxQuads * 6> vertices{};
-    std::size_t vertex_count = 0;
-
+    batch_.begin();
     for (const auto& e : scene.entities()) {
         if (!e.active || !e.visible || !e.sprite.visible) continue;
-        if (vertex_count + 6 > vertices.size()) break;
+        batch_.submit({
+            e.transform.position,
+            {e.sprite.size.x * e.transform.scale.x, e.sprite.size.y * e.transform.scale.y},
+            {0.0f, 0.0f}, {1.0f, 1.0f},
+            e.transform.rotation,
+            e.sprite.color,
+            0,
+            e.layer
+        });
+    }
+    batch_.end();
 
-        const float sx = e.transform.scale.x;
-        const float sy = e.transform.scale.y;
-        const float hw = e.sprite.size.x * sx * 0.5f / static_cast<float>(width_) * 2.0f;
-        const float hh = e.sprite.size.y * sy * 0.5f / static_cast<float>(height_) * 2.0f;
-        const float cx = e.transform.position.x / static_cast<float>(width_) * 2.0f - 1.0f;
-        const float cy = 1.0f - e.transform.position.y / static_cast<float>(height_) * 2.0f;
-        const float a = e.transform.rotation * 3.14159265358979323846f / 180.0f;
-        const float c = std::cos(a), s = std::sin(a);
-        const float x[4] = {-hw, hw, hw, -hw};
-        const float y[4] = {-hh, -hh, hh, hh};
-        const int order[6] = {0, 1, 2, 0, 2, 3};
+    const auto& src = batch_.vertices();
+    const auto& indices = batch_.indices();
+    if (src.empty() || indices.empty()) return;
 
-        for (int i = 0; i < 6; ++i) {
-            const int k = order[i];
-            const float rx = x[k] * c - y[k] * s;
-            const float ry = x[k] * s + y[k] * c;
-            vertices[vertex_count++] = {cx + rx, cy + ry,
-                e.sprite.color.r, e.sprite.color.g, e.sprite.color.b, e.sprite.color.a};
-        }
-        ++last_quad_count_;
+    if (src.size() > kMaxVertices || indices.size() > 65535) {
+        std::fprintf(stderr, "MJU GLES2 batch exceeds 16-bit index budget; reduce sprite batch capacity\n");
+        return;
     }
 
-    if (vertex_count == 0) return;
+    std::vector<Vertex> vertices;
+    vertices.resize(src.size());
+    for (std::size_t i = 0; i < src.size(); ++i) {
+        const auto& v = src[i];
+        vertices[i] = {
+            v.position.x / static_cast<float>(width_) * 2.0f - 1.0f,
+            1.0f - v.position.y / static_cast<float>(height_) * 2.0f,
+            v.color.r, v.color.g, v.color.b, v.color.a
+        };
+    }
+
+    std::vector<GLushort> index16(indices.size());
+    for (std::size_t i = 0; i < indices.size(); ++i) {
+        index16[i] = static_cast<GLushort>(indices[i]);
+    }
+
+    glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
+    glBufferData(GL_ARRAY_BUFFER,
+                 static_cast<GLsizeiptr>(vertices.size() * sizeof(Vertex)),
+                 vertices.data(), GL_DYNAMIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer_);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+                 static_cast<GLsizeiptr>(index16.size() * sizeof(GLushort)),
+                 index16.data(), GL_DYNAMIC_DRAW);
 
     glEnableVertexAttribArray(static_cast<GLuint>(pos_));
     glEnableVertexAttribArray(static_cast<GLuint>(color_));
-    glVertexAttribPointer(static_cast<GLuint>(pos_), 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), &vertices[0].x);
-    glVertexAttribPointer(static_cast<GLuint>(color_), 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), &vertices[0].r);
-    glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(vertex_count));
+    glVertexAttribPointer(static_cast<GLuint>(pos_), 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<const void*>(offsetof(Vertex, x)));
+    glVertexAttribPointer(static_cast<GLuint>(color_), 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<const void*>(offsetof(Vertex, r)));
+    glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(index16.size()), GL_UNSIGNED_SHORT, nullptr);
     glDisableVertexAttribArray(static_cast<GLuint>(pos_));
     glDisableVertexAttribArray(static_cast<GLuint>(color_));
-    last_vertex_count_ = vertex_count;
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+    last_quad_count_ = batch_.stats().sprites;
+    last_vertex_count_ = batch_.stats().vertices;
+    last_batch_count_ = batch_.stats().batches;
 }
 
 void GLES2Renderer::end() {}
 
 void GLES2Renderer::shutdown() {
+    if (vertex_buffer_) {
+        glDeleteBuffers(1, &vertex_buffer_);
+        vertex_buffer_ = 0;
+    }
+    if (index_buffer_) {
+        glDeleteBuffers(1, &index_buffer_);
+        index_buffer_ = 0;
+    }
     if (program_) {
         glDeleteProgram(program_);
         program_ = 0;
