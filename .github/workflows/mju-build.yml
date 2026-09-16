@@ -15,7 +15,7 @@ jobs:
         with:
           submodules: recursive
       - name: Configure
-        run: cmake -S . -B build -DMJU_BUILD_TESTS=ON
+        run: cmake -S . -B build -DMJU_BUILD_TESTS=ON -DSDL_UNIX_CONSOLE_BUILD=ON
       - name: Build
         run: cmake --build build --parallel 2
       - name: Test
