@@ -96,7 +96,9 @@ bool load_settings(Settings& settings, const std::string& path) {
                                std::istreambuf_iterator<char>());
     if (contents.empty()) return false;
 
-    const std::string trimmed = contents.substr(contents.find_first_not_of(" \t\r\n"));
+    const std::size_t first = contents.find_first_not_of(" \t\r\n");
+    if (first == std::string::npos) return false;
+    const std::string trimmed = contents.substr(first);
     if (trimmed.rfind("MJU_PROJECT 1", 0) == 0) {
         std::istringstream legacy(contents);
         return load_legacy(legacy, settings);
