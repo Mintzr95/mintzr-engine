@@ -1,5 +1,6 @@
 #pragma once
 #include <GLES2/gl2.h>
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -27,7 +28,10 @@ public:
 
     void set_pixel_art(bool enabled) { pixel_art_ = enabled; }
     void set_mipmaps(bool enabled) { mipmaps_ = enabled; }
-    void set_gpu_texture_budget_bytes(std::size_t bytes) { gpu_budget_bytes_ = std::max<std::size_t>(1, bytes); trim_gpu_textures(); }
+    void set_gpu_texture_budget_bytes(std::size_t bytes) {
+        gpu_budget_bytes_ = std::max<std::size_t>(1, bytes);
+        trim_gpu_textures();
+    }
     bool pixel_art() const { return pixel_art_; }
     bool mipmaps() const { return mipmaps_; }
     std::size_t last_quad_count() const { return last_quad_count_; }
