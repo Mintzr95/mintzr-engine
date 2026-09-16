@@ -1,6 +1,7 @@
 #include "resources.h"
 #include <algorithm>
 #include <cctype>
+#include <cstdio>
 #include <fstream>
 #include <iterator>
 #include <limits>
@@ -45,16 +46,14 @@ bool AssetPack::build(const std::string& source_directory, const std::string& ou
         if (it->is_regular_file(ec)) files.push_back(it->path());
     }
     std::sort(files.begin(), files.end());
+    if (files.size() > 1000000u) return false;
 
-    std::string temporary = output_path + ".tmp";
+    const std::string temporary = output_path + ".tmp";
     std::ofstream out(temporary, std::ios::binary | std::ios::trunc);
     if (!out) return false;
 
     out.write(kMagic, sizeof(kMagic));
     if (!write_u32(out, version_) || !write_u32(out, static_cast<std::uint32_t>(files.size()))) return false;
-
-    std::vector<PackEntry> entries;
-    entries.reserve(files.size());
 
     for (const auto& file : files) {
         std::ifstream in(file, std::ios::binary);
@@ -62,12 +61,9 @@ bool AssetPack::build(const std::string& source_directory, const std::string& ou
         const auto bytes = std::vector<std::uint8_t>(
             std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
         const auto relative = std::filesystem::relative(file, root, ec).generic_string();
-        if (ec || relative.empty()) return false;
-        if (relative.size() > std::numeric_limits<std::uint16_t>::max()) return false;
-        if (static_cast<std::uint64_t>(bytes.size()) > std::numeric_limits<std::uint64_t>::max()) return false;
+        if (ec || relative.empty() || relative.size() > std::numeric_limits<std::uint16_t>::max()) return false;
 
         const std::uint16_t path_length = static_cast<std::uint16_t>(relative.size());
-        const auto offset = static_cast<std::uint64_t>(out.tellp());
         out.write(reinterpret_cast<const char*>(&path_length), sizeof(path_length));
         out.write(relative.data(), static_cast<std::streamsize>(relative.size()));
         if (!write_u64(out, static_cast<std::uint64_t>(bytes.size()))) return false;
@@ -75,7 +71,6 @@ bool AssetPack::build(const std::string& source_directory, const std::string& ou
             out.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
         }
         if (!out) return false;
-        entries.push_back({relative, offset, static_cast<std::uint64_t>(bytes.size())});
     }
 
     out.flush();
@@ -106,16 +101,16 @@ bool AssetPack::open(const std::string& pack_path) {
 
     for (std::uint32_t i = 0; i < count; ++i) {
         std::uint16_t path_length = 0;
-        if (!in.read(reinterpret_cast<char*>(&path_length), sizeof(path_length))) return false;
-        if (path_length == 0) return false;
+        if (!in.read(reinterpret_cast<char*>(&path_length), sizeof(path_length)) || path_length == 0) return false;
         std::string relative(path_length, '\0');
         in.read(relative.data(), static_cast<std::streamsize>(relative.size()));
         if (!in) return false;
 
         std::uint64_t size = 0;
-        const std::uint64_t data_position = static_cast<std::uint64_t>(in.tellg()) + sizeof(std::uint64_t);
         if (!read_u64(in, size)) return false;
+        const auto data_position = static_cast<std::uint64_t>(in.tellg());
         if (!index_.emplace(relative, entries_.size()).second) return false;
+        if (size > static_cast<std::uint64_t>(std::numeric_limits<std::streamoff>::max())) return false;
 
         entries_.push_back({relative, data_position, size});
         in.seekg(static_cast<std::streamoff>(size), std::ios::cur);
@@ -148,6 +143,7 @@ bool AssetPack::read(const std::string& path, std::vector<std::uint8_t>& out) co
 
     std::ifstream in(pack_path_, std::ios::binary);
     if (!in) return false;
+    if (entry.offset > static_cast<std::uint64_t>(std::numeric_limits<std::streamoff>::max())) return false;
     in.seekg(static_cast<std::streamoff>(entry.offset), std::ios::beg);
     if (!in) return false;
     out.resize(static_cast<std::size_t>(entry.size));
