@@ -55,8 +55,6 @@ private:
     void trim_gpu_textures(std::size_t incoming_bytes = 0);
     void destroy_textures();
     void upload_and_draw_batches();
-    void append_scene(const Scene& scene, const Camera2D& camera);
-    void append_tilemap(const tilemap::TileMap& map, const Camera2D& camera);
 
     GLuint program_ = 0;
     GLint pos_ = -1;
