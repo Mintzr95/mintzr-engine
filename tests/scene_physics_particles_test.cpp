@@ -14,8 +14,11 @@ int main(){
     const auto world=scene.world_transform(child.id);
     assert(std::fabs(world.position.x-90.0f)<0.01f);
     assert(std::fabs(world.position.y-70.0f)<0.01f);
-    assert(scene.set_parent(child.id,0));
     assert(!scene.set_parent(root.id,child.id));
+    assert(scene.set_parent(child.id,0));
+    assert(scene.set_parent(root.id,child.id));
+    assert(!scene.set_parent(child.id,root.id));
+    assert(scene.set_parent(root.id,0));
 
     Entity* duplicate=scene.duplicate_entity(root.id);
     assert(duplicate!=nullptr);
