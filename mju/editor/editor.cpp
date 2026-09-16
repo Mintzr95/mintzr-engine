@@ -63,21 +63,18 @@ bool EditorState::load(const std::string& path) {
     const bool ok = load_scene(scene, path);
     if (ok) {
         selected = 0;
-        transform_editing_ = false;
         history.reset(scene);
     }
     return ok;
 }
 
 bool EditorState::undo() {
-    if (transform_editing_) end_transform();
     const bool ok = history.undo(scene);
     if (ok) selected = 0;
     return ok;
 }
 
 bool EditorState::redo() {
-    if (transform_editing_) end_transform();
     const bool ok = history.redo(scene);
     if (ok) selected = 0;
     return ok;
@@ -85,19 +82,6 @@ bool EditorState::redo() {
 
 void EditorState::checkpoint() {
     history.checkpoint(scene);
-}
-
-void EditorState::begin_transform() {
-    if (transform_editing_) return;
-    if (!selected || !scene.find(selected)) return;
-    history.checkpoint(scene);
-    transform_editing_ = true;
-}
-
-void EditorState::end_transform() {
-    if (!transform_editing_) return;
-    history.commit(scene);
-    transform_editing_ = false;
 }
 
 void EditorState::snap_position(Entity& entity) {
