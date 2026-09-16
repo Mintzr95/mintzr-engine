@@ -7,10 +7,34 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 include(FetchContent)
 
 option(MJU_USE_IMGUI_EDITOR "Build the optional desktop editor UI" ON)
-option(MJU_USE_MINIAUDIO "Use miniaudio for the audio backend" ON)
-option(MJU_USE_JSON "Use nlohmann/json for project and scene serialization" ON)
-option(MJU_USE_STB_IMAGE "Use stb_image for texture decoding" ON)
-option(MJU_USE_TMXLITE "Use tmxlite for Tiled TMX import" ON)
+
+FetchContent_Declare(miniaudio
+    GIT_REPOSITORY https://github.com/mackron/miniaudio.git
+    GIT_TAG 0.11.25
+    GIT_SHALLOW TRUE)
+FetchContent_MakeAvailable(miniaudio)
+add_library(mju_miniaudio STATIC third_party/miniaudio_wrapper.c)
+target_include_directories(mju_miniaudio PRIVATE ${miniaudio_SOURCE_DIR})
+target_compile_features(mju_miniaudio PUBLIC c_std_99)
+
+FetchContent_Declare(nlohmann_json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG v3.12.0
+    GIT_SHALLOW TRUE)
+FetchContent_MakeAvailable(nlohmann_json)
+
+FetchContent_Declare(stb
+    GIT_REPOSITORY https://github.com/nothings/stb.git
+    GIT_TAG f0569113c93ad095470c54bf34a17b36646bbbb5
+    GIT_SHALLOW FALSE)
+FetchContent_MakeAvailable(stb)
+
+FetchContent_Declare(tmxlite
+    GIT_REPOSITORY https://github.com/fallahn/tmxlite.git
+    GIT_TAG 1.2.2
+    GIT_SHALLOW TRUE)
+FetchContent_MakeAvailable(tmxlite)
+add_subdirectory(${tmxlite_SOURCE_DIR}/tmxlite ${tmxlite_BINARY_DIR})
 
 if(MJU_USE_IMGUI_EDITOR AND NOT ANDROID)
     FetchContent_Declare(imgui
@@ -25,42 +49,6 @@ if(MJU_USE_IMGUI_EDITOR AND NOT ANDROID)
         ${imgui_SOURCE_DIR}/imgui_tables.cpp
         ${imgui_SOURCE_DIR}/imgui_widgets.cpp)
     target_include_directories(mju_imgui PUBLIC ${imgui_SOURCE_DIR})
-endif()
-
-if(MJU_USE_MINIAUDIO)
-    FetchContent_Declare(miniaudio
-        GIT_REPOSITORY https://github.com/mackron/miniaudio.git
-        GIT_TAG 0.11.25
-        GIT_SHALLOW TRUE)
-    FetchContent_MakeAvailable(miniaudio)
-    add_library(mju_miniaudio STATIC third_party/miniaudio_wrapper.c)
-    target_include_directories(mju_miniaudio PRIVATE ${miniaudio_SOURCE_DIR})
-    target_compile_features(mju_miniaudio PUBLIC c_std_99)
-endif()
-
-if(MJU_USE_JSON)
-    FetchContent_Declare(nlohmann_json
-        GIT_REPOSITORY https://github.com/nlohmann/json.git
-        GIT_TAG v3.12.0
-        GIT_SHALLOW TRUE)
-    FetchContent_MakeAvailable(nlohmann_json)
-endif()
-
-if(MJU_USE_STB_IMAGE)
-    FetchContent_Declare(stb
-        GIT_REPOSITORY https://github.com/nothings/stb.git
-        GIT_TAG f0569113c93ad095470c54bf34a17b36646bbbb5
-        GIT_SHALLOW FALSE)
-    FetchContent_MakeAvailable(stb)
-endif()
-
-if(MJU_USE_TMXLITE)
-    FetchContent_Declare(tmxlite
-        GIT_REPOSITORY https://github.com/fallahn/tmxlite.git
-        GIT_TAG 1.2.2
-        GIT_SHALLOW TRUE)
-    FetchContent_MakeAvailable(tmxlite)
-    add_subdirectory(${tmxlite_SOURCE_DIR}/tmxlite ${tmxlite_BINARY_DIR})
 endif()
 
 add_library(mju_core STATIC
@@ -89,29 +77,20 @@ add_library(mju_core STATIC
 
 target_include_directories(mju_core PUBLIC mju)
 target_compile_features(mju_core PUBLIC cxx_std_20)
-
 target_compile_definitions(mju_core PUBLIC
-    $<$<BOOL:${MJU_USE_MINIAUDIO}>:MJU_HAS_MINIAUDIO=1>
-    $<$<BOOL:${MJU_USE_JSON}>:MJU_HAS_JSON=1>
-    $<$<BOOL:${MJU_USE_STB_IMAGE}>:MJU_HAS_STB_IMAGE=1>
-    $<$<BOOL:${MJU_USE_TMXLITE}>:MJU_HAS_TMXLITE=1>)
+    MJU_HAS_MINIAUDIO=1
+    MJU_HAS_JSON=1
+    MJU_HAS_STB_IMAGE=1
+    MJU_HAS_TMXLITE=1)
+
+target_link_libraries(mju_core PUBLIC
+    mju_miniaudio
+    nlohmann_json::nlohmann_json
+    tmxlite)
+target_include_directories(mju_core PRIVATE ${stb_SOURCE_DIR} ${tmxlite_SOURCE_DIR}/tmxlite/include ${miniaudio_SOURCE_DIR})
 
 if(MJU_USE_IMGUI_EDITOR AND NOT ANDROID)
     target_link_libraries(mju_core PUBLIC mju_imgui)
-endif()
-if(MJU_USE_MINIAUDIO)
-    target_include_directories(mju_core PRIVATE ${miniaudio_SOURCE_DIR})
-    target_link_libraries(mju_core PUBLIC mju_miniaudio)
-endif()
-if(MJU_USE_JSON)
-    target_link_libraries(mju_core PUBLIC nlohmann_json::nlohmann_json)
-endif()
-if(MJU_USE_STB_IMAGE)
-    target_include_directories(mju_core PRIVATE ${stb_SOURCE_DIR})
-endif()
-if(MJU_USE_TMXLITE)
-    target_link_libraries(mju_core PUBLIC tmxlite)
-    target_include_directories(mju_core PRIVATE ${tmxlite_SOURCE_DIR}/tmxlite/include)
 endif()
 
 if(ANDROID)
