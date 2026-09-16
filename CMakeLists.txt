@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(MJUEngine LANGUAGES CXX)
+project(MJUEngine LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -51,8 +51,8 @@ if(MJU_USE_ENTT)
 endif()
 
 # raylib is intentionally isolated from the MJU public runtime API. Its
-# portable 2D primitives are useful for experiments, validation and tooling,
-# while MJU owns the final renderer abstraction and mobile renderer.
+# portable 2D primitives are useful for experiments and validation while MJU
+# owns the final renderer abstraction and mobile renderer.
 if(MJU_USE_RAYLIB_TOOLS)
     FetchContent_Declare(
         raylib
@@ -83,7 +83,8 @@ if(MJU_USE_IMGUI_EDITOR AND NOT ANDROID)
     target_include_directories(mju_imgui PUBLIC ${imgui_SOURCE_DIR})
 endif()
 
-# miniaudio is kept as a tiny, replaceable backend for the MJU audio layer.
+# miniaudio is a small, replaceable backend and is particularly suitable for
+# low-memory Android targets.
 if(MJU_USE_MINIAUDIO)
     FetchContent_Declare(
         miniaudio
@@ -92,7 +93,7 @@ if(MJU_USE_MINIAUDIO)
         GIT_SHALLOW TRUE
     )
     FetchContent_MakeAvailable(miniaudio)
-    add_library(mju_miniaudio STATIC third_party/miniaudio_wrapper.cpp)
+    add_library(mju_miniaudio STATIC third_party/miniaudio_wrapper.c)
     target_include_directories(mju_miniaudio PRIVATE ${miniaudio_SOURCE_DIR})
     target_compile_features(mju_miniaudio PUBLIC c_std_99)
 endif()
