@@ -5,8 +5,14 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 set(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
 include(FetchContent)
-FetchContent_Declare(stb GIT_REPOSITORY https://github.com/nothings/stb.git GIT_TAG f0569113c93ad095470c54bf34a17b36646bbbb5 GIT_SHALLOW TRUE)
-FetchContent_Populate(stb)
+
+# Pin stb to a known commit, but do not use a shallow clone for an arbitrary SHA.
+FetchContent_Declare(stb
+    GIT_REPOSITORY https://github.com/nothings/stb.git
+    GIT_TAG f0569113c93ad095470c54bf34a17b36646bbbb5
+    GIT_SHALLOW FALSE)
+FetchContent_MakeAvailable(stb)
+
 add_library(mju_android SHARED
  jni_bridge.cpp
  ../../../../../platform/android/android_entry.cpp
