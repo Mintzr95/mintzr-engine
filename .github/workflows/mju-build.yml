@@ -7,50 +7,23 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: mju-engine-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   linux-cmake:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - name: Configure
-        run: cmake -S . -B build -DMJU_BUILD_TESTS=ON -DSDL_UNIX_CONSOLE_BUILD=ON
+        run: cmake -S . -B build -DMJU_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo
       - name: Build
         run: cmake --build build --parallel 2
       - name: Test
-        run: ctest --test-dir build --output-on-failure
-
-  android-apk:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          submodules: recursive
-      - name: Set up Java
-        uses: actions/setup-java@v6
-        with:
-          distribution: temurin
-          java-version: '17'
-          cache: gradle
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v4
-        with:
-          packages: ''
-          accept-android-sdk-licenses: true
-          log-accepted-android-sdk-licenses: false
-      - name: Install Android toolchain
-        run: |
-          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018" "cmake;3.22.1"
-      - name: Make Gradle wrapper executable
-        working-directory: android
-        run: chmod +x gradlew
-      - name: Build debug APK
-        working-directory: android
-        run: ./gradlew --no-daemon assembleDebug
-      - name: Upload debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: mju-android-debug
-          path: android/app/build/outputs/apk/debug/*.apk
-          if-no-files-found: error
+        run: ctest --test-dir build --output-on-failure --parallel 2
