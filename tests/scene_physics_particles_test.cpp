@@ -29,6 +29,7 @@ int main() {
     assert(scene.set_parent(root.id, child.id));
     assert(!scene.set_parent(child.id, root.id));
     assert(scene.set_parent(root.id, 0));
+    assert(scene.set_parent(child.id, root.id));
 
     assert(scene.destroy_entity(duplicate->id));
     assert(scene.find(duplicate->id) == nullptr);
