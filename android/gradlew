@@ -1,5 +1,34 @@
 #!/usr/bin/env sh
-set -e
-if command -v gradle >/dev/null 2>&1; then exec gradle "$@"; fi
-echo 'Gradle wrapper bootstrap is not bundled in this starter. Use a standard Gradle wrapper before local Android builds.'
-exit 1
+set -eu
+
+# Lightweight reproducible wrapper for phone/CI builds.
+# AGP 8.13 requires Gradle 8.13; do not silently use an incompatible system Gradle.
+GRADLE_VERSION="8.13"
+ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" >/dev/null 2>&1 && pwd)
+CACHE_DIR="${GRADLE_USER_HOME:-$HOME/.gradle}/mju-wrapper"
+DIST_DIR="$CACHE_DIR/gradle-$GRADLE_VERSION"
+GRADLE_BIN="$DIST_DIR/bin/gradle"
+
+if [ ! -x "$GRADLE_BIN" ]; then
+  mkdir -p "$CACHE_DIR"
+  ARCHIVE="$CACHE_DIR/gradle-$GRADLE_VERSION-bin.zip"
+  URL="https://services.gradle.org/distributions/gradle-$GRADLE_VERSION-bin.zip"
+  if command -v curl >/dev/null 2>&1; then
+    curl -fL --retry 3 --retry-delay 2 "$URL" -o "$ARCHIVE"
+  elif command -v wget >/dev/null 2>&1; then
+    wget -O "$ARCHIVE" "$URL"
+  else
+    echo "MJU: curl or wget is required to bootstrap Gradle $GRADLE_VERSION" >&2
+    exit 1
+  fi
+  rm -rf "$DIST_DIR"
+  if command -v unzip >/dev/null 2>&1; then
+    unzip -q "$ARCHIVE" -d "$CACHE_DIR"
+  else
+    echo "MJU: unzip is required to bootstrap Gradle $GRADLE_VERSION" >&2
+    exit 1
+  fi
+fi
+
+cd "$ROOT_DIR"
+exec "$GRADLE_BIN" "$@"

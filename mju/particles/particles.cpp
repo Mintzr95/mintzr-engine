@@ -1,7 +1,50 @@
 #include "particles.h"
-#include <cmath>
 #include <algorithm>
-namespace mju::particles { void Emitter::configure(const EmitterConfig& c){cfg_=c;particles_.reserve((size_t)c.maxParticles);} void Emitter::start(){running_=true;} void Emitter::stop(){running_=false;} void Emitter::clear(){particles_.clear();accumulator_=0;}
-float Emitter::rand01(){seed_=1664525u*seed_+1013904223u;return (seed_&0x00ffffff)/16777215.0f;}
-void Emitter::emit(Vec2 o){if((int)particles_.size()>=cfg_.maxParticles)return;float a=(rand01()-0.5f)*cfg_.spread;float s=cfg_.speed*(0.75f+0.5f*rand01());Particle p;p.position=o;p.velocity={std::cos(a)*s,std::sin(a)*s};p.color=cfg_.startColor;p.life=p.maxLife=cfg_.lifetime;p.size=cfg_.size;particles_.push_back(p);}
-void Emitter::update(float dt,Vec2 o){if(dt<=0)return;if(running_&&cfg_.emissionRate>0){accumulator_+=dt*cfg_.emissionRate;while(accumulator_>=1){emit(o);accumulator_-=1;}}for(auto&p:particles_){p.position+=p.velocity*dt;p.velocity.y+=80*dt;p.life-=dt;float t=p.life>0?p.life/p.maxLife:0;p.color.a=t;}particles_.erase(std::remove_if(particles_.begin(),particles_.end(),[](const Particle&p){return p.life<=0;}),particles_.end());}}
+#include <cmath>
+
+namespace mju::particles {
+void Emitter::configure(const EmitterConfig& c) {
+    cfg_ = c;
+    cfg_.maxParticles = std::max(1, cfg_.maxParticles);
+    cfg_.emissionRate = std::max(0.0f, cfg_.emissionRate);
+    cfg_.lifetime = std::max(0.001f, cfg_.lifetime);
+    particles_.clear();
+    particles_.reserve(static_cast<std::size_t>(cfg_.maxParticles));
+    accumulator_ = 0.0f;
+}
+void Emitter::start(){running_=true;}
+void Emitter::stop(){running_=false;}
+void Emitter::clear(){particles_.clear();accumulator_=0.0f;}
+float Emitter::rand01(){seed_=1664525u*seed_+1013904223u;return (seed_&0x00ffffffu)/16777215.0f;}
+void Emitter::emit(Vec2 o){
+    if(static_cast<int>(particles_.size())>=cfg_.maxParticles)return;
+    const float a=(rand01()-0.5f)*cfg_.spread;
+    const float s=cfg_.speed*(0.75f+0.5f*rand01());
+    Particle p; p.position=o; p.velocity={std::cos(a)*s,std::sin(a)*s}; p.color=cfg_.startColor;
+    p.life=p.maxLife=cfg_.lifetime; p.size=cfg_.size; particles_.push_back(p);
+}
+void Emitter::update(float dt,Vec2 o){
+    if(dt<=0) return;
+    if(running_&&cfg_.emissionRate>0){
+        accumulator_+=dt*cfg_.emissionRate;
+        const int emit_limit=cfg_.maxParticles-static_cast<int>(particles_.size());
+        int emitted=0;
+        while(accumulator_>=1.0f&&emitted<emit_limit){emit(o);accumulator_-=1.0f;++emitted;}
+        // Avoid an ever-growing backlog if the app was backgrounded.
+        if(emitted==emit_limit&&accumulator_>2.0f) accumulator_=2.0f;
+    }
+    for(std::size_t i=0;i<particles_.size();) {
+        Particle& p=particles_[i];
+        p.position+=p.velocity*dt;
+        p.velocity.y+=80.0f*dt;
+        p.life-=dt;
+        p.color.a=p.life>0.0f?std::clamp(p.life/p.maxLife,0.0f,1.0f):0.0f;
+        if(p.life<=0.0f){
+            particles_[i]=std::move(particles_.back());
+            particles_.pop_back();
+            continue;
+        }
+        ++i;
+    }
+}
+}

@@ -1,4 +1,25 @@
 #pragma once
 #include <GLES2/gl2.h>
+#include <cstddef>
+#include <cstdint>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
 #include "../core/scene.h"
-namespace mju { class GLES2Renderer { public: bool initialize(); void resize(int w,int h); void begin(); void draw(const Scene& scene); void end(); void shutdown(); private: GLuint program_=0; GLint pos_= -1, color_=-1; int width_=1,height_=1; }; }
+#include "../core/camera.h"
+#include "../assets/texture_cache.h"
+#include "../tilemap/tilemap.h"
+#include "sprite_batch.h"
+namespace mju {
+class GLES2Renderer {
+public:
+ bool initialize();void resize(int w,int h);void begin();void draw(const Scene&scene);void draw(const Scene&scene,const Camera2D&camera);void draw_tilemap(const tilemap::TileMap&map,const Camera2D&camera);void end();void shutdown();
+ void set_pixel_art(bool enabled){pixel_art_=enabled;}
+ void set_mipmaps(bool enabled){mipmaps_=enabled;}
+ bool pixel_art()const{return pixel_art_;} bool mipmaps()const{return mipmaps_;}
+ std::size_t last_quad_count()const{return last_quad_count_;}std::size_t last_vertex_count()const{return last_vertex_count_;}std::size_t last_batch_count()const{return last_batch_count_;}std::size_t loaded_texture_count()const{return gpu_textures_.size();}
+private:
+ bool check_shader(GLuint shader,const char*stage);bool check_program(GLuint program);GLuint texture_for(const std::string&path);void destroy_textures();void upload_and_draw_batches();
+ GLuint program_=0;GLint pos_=-1,color_=-1,uv_=-1,texture_sampler_=-1;GLuint vertex_buffer_=0,index_buffer_=0,white_texture_=0;int width_=1,height_=1;std::size_t last_quad_count_=0,last_vertex_count_=0,last_batch_count_=0;bool pixel_art_=false,mipmaps_=false;render::SpriteBatch batch_{2048};assets::TextureCache texture_cache_;std::unordered_map<std::string,GLuint>gpu_textures_;std::unordered_set<std::string>missing_textures_;
+};
+}
