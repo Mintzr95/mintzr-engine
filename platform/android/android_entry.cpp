@@ -32,10 +32,10 @@ extern "C" void mju_android_resize(int w, int h) {
 
 extern "C" void mju_android_tick(float dt) {
     g_app.tick(dt);
-    g_renderer.begin();
-    g_renderer.draw(g_app.engine().scene(), g_app.engine().camera());
-    g_renderer.draw_tilemap(g_app.engine().tilemap(), g_app.engine().camera());
-    g_renderer.end();
+    g_renderer.draw_scene_and_tilemap(
+        g_app.engine().scene(),
+        g_app.engine().tilemap(),
+        g_app.engine().camera());
 }
 
 extern "C" void mju_android_touch(int action, int id, float x, float y) {
