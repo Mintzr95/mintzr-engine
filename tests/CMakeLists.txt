@@ -27,3 +27,8 @@ add_executable(mju_script_vm_test script_vm_test.cpp)
 target_include_directories(mju_script_vm_test PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries(mju_script_vm_test PRIVATE mju_core)
 add_test(NAME mju_script_vm_test COMMAND mju_script_vm_test)
+
+add_executable(mju_resources_pack_test resources_pack_test.cpp)
+target_include_directories(mju_resources_pack_test PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries(mju_resources_pack_test PRIVATE mju_core)
+add_test(NAME mju_resources_pack_test COMMAND mju_resources_pack_test)
