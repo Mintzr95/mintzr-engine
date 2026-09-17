@@ -1,6 +1,5 @@
 #include "ui.h"
 #include <algorithm>
-#include <unordered_set>
 
 namespace mju::ui {
 
@@ -25,9 +24,14 @@ std::vector<Widget*> Canvas::children_of(const std::string& parent_id) {
     return result;
 }
 
-void Canvas::layout_children(Widget& parent) {
+void Canvas::layout_children(Widget& parent, std::unordered_set<std::string>& visiting) {
+    if (!visiting.insert(parent.id).second) return;
+
     auto children = children_of(parent.id);
-    if (children.empty() || parent.layout_mode == LayoutMode::Absolute) return;
+    if (children.empty() || parent.layout_mode == LayoutMode::Absolute) {
+        visiting.erase(parent.id);
+        return;
+    }
 
     const float left = parent.rect.position.x - parent.rect.size.x * 0.5f + parent.padding.x;
     const float top = parent.rect.position.y - parent.rect.size.y * 0.5f + parent.padding.y;
@@ -66,7 +70,10 @@ void Canvas::layout_children(Widget& parent) {
         }
     }
 
-    for (auto* child : children) layout_children(*child);
+    for (auto* child : children) {
+        layout_children(*child, visiting);
+    }
+    visiting.erase(parent.id);
 }
 
 void Canvas::layout(float width, float height) {
@@ -109,10 +116,10 @@ void Canvas::layout(float width, float height) {
         }
     }
 
-    std::unordered_set<std::string> visited;
+    std::unordered_set<std::string> visiting;
     for (auto& widget : widgets_) {
-        if (widget.parent.empty() && visited.insert(widget.id).second) {
-            layout_children(widget);
+        if (widget.parent.empty()) {
+            layout_children(widget, visiting);
         }
     }
 }
