@@ -105,8 +105,8 @@ Java_com_mju_engine_MainActivity_nativeStop(JNIEnv*, jclass) {
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_mju_engine_EditorActivity_nativeEditorStart(JNIEnv*, jclass) {
-    g_editor.history.reset(g_editor.scene);
     ensure_editor_seed();
+    g_editor.history.reset(g_editor.scene);
 }
 
 extern "C" JNIEXPORT jstring JNICALL
@@ -144,14 +144,19 @@ Java_com_mju_engine_EditorActivity_nativeEditorRedo(JNIEnv*, jclass) {
     return g_editor.redo() ? JNI_TRUE : JNI_FALSE;
 }
 
+extern "C" JNIEXPORT void JNICALL
+Java_com_mju_engine_EditorActivity_nativeEditorBeginTransform(JNIEnv*, jclass) {
+    g_editor.begin_transform_edit();
+}
+
 extern "C" JNIEXPORT jboolean JNICALL
 Java_com_mju_engine_EditorActivity_nativeEditorSetTransform(JNIEnv*, jclass, jint id, jfloat x, jfloat y) {
-    auto* entity = g_editor.scene.find(static_cast<mju::EntityId>(id));
-    if (!entity || entity->locked) return JNI_FALSE;
-    g_editor.checkpoint();
-    entity->transform.position = {x, y};
-    g_editor.history.commit(g_editor.scene);
-    return JNI_TRUE;
+    return g_editor.set_transform(static_cast<mju::EntityId>(id), x, y) ? JNI_TRUE : JNI_FALSE;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_mju_engine_EditorActivity_nativeEditorEndTransform(JNIEnv*, jclass) {
+    g_editor.end_transform_edit();
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
@@ -200,6 +205,7 @@ Java_com_mju_engine_EditorActivity_nativeEditorSave(JNIEnv* env, jclass, jstring
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_mju_engine_EditorActivity_nativeEditorClear(JNIEnv*, jclass) {
+    g_editor.end_transform_edit();
     g_editor.scene.clear();
     g_editor.selected = 0;
     g_editor.history.reset(g_editor.scene);
