@@ -2,6 +2,7 @@
 #include "../core/math.h"
 #include <functional>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 namespace mju::ui {
@@ -53,7 +54,7 @@ public:
     bool pointer_down(Vec2 point);
 
 private:
-    void layout_children(Widget& parent);
+    void layout_children(Widget& parent, std::unordered_set<std::string>& visiting);
     std::vector<Widget*> children_of(const std::string& parent_id);
     std::vector<Widget> widgets_;
 };
