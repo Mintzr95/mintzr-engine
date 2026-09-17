@@ -348,6 +348,7 @@ public class EditorActivity extends Activity {
                 selectedId = hit(x, y);
                 NodeView node = find(selectedId);
                 dragging = node != null && !node.locked;
+                if (dragging) nativeEditorBeginTransform();
                 lastX = x;
                 lastY = y;
                 refreshInspector();
@@ -369,6 +370,7 @@ public class EditorActivity extends Activity {
                 return true;
             }
             if (event.getActionMasked() == MotionEvent.ACTION_UP || event.getActionMasked() == MotionEvent.ACTION_CANCEL) {
+                if (dragging) nativeEditorEndTransform();
                 dragging = false;
                 refreshFromNative();
                 refreshHierarchy();
@@ -415,7 +417,9 @@ public class EditorActivity extends Activity {
     private static native boolean nativeEditorDelete(int id);
     private static native boolean nativeEditorUndo();
     private static native boolean nativeEditorRedo();
+    private static native void nativeEditorBeginTransform();
     private static native boolean nativeEditorSetTransform(int id, float x, float y);
+    private static native void nativeEditorEndTransform();
     private static native boolean nativeEditorSetName(int id, String name);
     private static native boolean nativeEditorSetVisibility(int id, boolean visible);
     private static native boolean nativeEditorSetLocked(int id, boolean locked);
