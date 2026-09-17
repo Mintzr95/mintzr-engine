@@ -30,6 +30,16 @@ bool read_u64(std::ifstream& in, std::uint64_t& value) {
     return static_cast<bool>(in);
 }
 
+bool safe_relative_path(const std::string& value) {
+    if (value.empty() || value.front() == '/' || value.find('\\') != std::string::npos) return false;
+    std::filesystem::path path(value);
+    if (path.is_absolute()) return false;
+    for (const auto& part : path) {
+        if (part == ".." || part.empty()) return false;
+    }
+    return path.generic_string() == value;
+}
+
 }
 
 bool AssetPack::build(const std::string& source_directory, const std::string& output_path) {
@@ -41,7 +51,9 @@ bool AssetPack::build(const std::string& source_directory, const std::string& ou
     if (ec || !std::filesystem::is_directory(root, ec)) return false;
 
     std::vector<std::filesystem::path> files;
-    for (std::filesystem::recursive_directory_iterator it(root, ec), end; it != end; it.increment(ec)) {
+    std::filesystem::recursive_directory_iterator it(root, ec);
+    const std::filesystem::recursive_directory_iterator end;
+    for (; it != end; it.increment(ec)) {
         if (ec) return false;
         if (it->is_regular_file(ec)) files.push_back(it->path());
     }
@@ -58,10 +70,9 @@ bool AssetPack::build(const std::string& source_directory, const std::string& ou
     for (const auto& file : files) {
         std::ifstream in(file, std::ios::binary);
         if (!in) return false;
-        const auto bytes = std::vector<std::uint8_t>(
-            std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+        std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
         const auto relative = std::filesystem::relative(file, root, ec).generic_string();
-        if (ec || relative.empty() || relative.size() > std::numeric_limits<std::uint16_t>::max()) return false;
+        if (ec || !safe_relative_path(relative) || relative.size() > std::numeric_limits<std::uint16_t>::max()) return false;
 
         const std::uint16_t path_length = static_cast<std::uint16_t>(relative.size());
         out.write(reinterpret_cast<const char*>(&path_length), sizeof(path_length));
@@ -104,7 +115,7 @@ bool AssetPack::open(const std::string& pack_path) {
         if (!in.read(reinterpret_cast<char*>(&path_length), sizeof(path_length)) || path_length == 0) return false;
         std::string relative(path_length, '\0');
         in.read(relative.data(), static_cast<std::streamsize>(relative.size()));
-        if (!in) return false;
+        if (!in || !safe_relative_path(relative)) return false;
 
         std::uint64_t size = 0;
         if (!read_u64(in, size)) return false;
@@ -190,8 +201,10 @@ Type ResourceCatalog::classify(const std::filesystem::path& path) {
 bool ResourceCatalog::import_directory(const std::string& root) {
     std::error_code ec;
     const auto base = std::filesystem::path(root);
-    if (!std::filesystem::exists(base, ec)) return false;
-    for (auto it = std::filesystem::recursive_directory_iterator(base, ec), end; it != end; it.increment(ec)) {
+    if (!std::filesystem::exists(base, ec) || !std::filesystem::is_directory(base, ec)) return false;
+    std::filesystem::recursive_directory_iterator it(base, ec);
+    const std::filesystem::recursive_directory_iterator end;
+    for (; it != end; it.increment(ec)) {
         if (ec) return false;
         if (!it->is_regular_file(ec)) continue;
         const auto type = classify(it->path());
