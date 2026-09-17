@@ -37,3 +37,8 @@ add_executable(mju_ui_layout_test ui_layout_test.cpp)
 target_include_directories(mju_ui_layout_test PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries(mju_ui_layout_test PRIVATE mju_core)
 add_test(NAME mju_ui_layout_test COMMAND mju_ui_layout_test)
+
+add_executable(mju_editor_project_test editor_project_test.cpp)
+target_include_directories(mju_editor_project_test PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(mju_editor_project_test PRIVATE mju_core)
+add_test(NAME mju_editor_project_test COMMAND mju_editor_project_test)
