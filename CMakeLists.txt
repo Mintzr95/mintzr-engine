@@ -7,6 +7,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 include(FetchContent)
 
 option(MJU_USE_IMGUI_EDITOR "Build the optional desktop editor UI" ON)
+option(MJU_BUILD_SAMPLES "Build the standalone MJU sample helpers" ON)
 
 FetchContent_Declare(miniaudio
     GIT_REPOSITORY https://github.com/mackron/miniaudio.git
@@ -91,6 +92,12 @@ target_include_directories(mju_core PRIVATE ${stb_SOURCE_DIR} ${tmxlite_SOURCE_D
 
 if(MJU_USE_IMGUI_EDITOR AND NOT ANDROID)
     target_link_libraries(mju_core PUBLIC mju_imgui)
+endif()
+
+if(MJU_BUILD_SAMPLES)
+    add_library(mju_samples STATIC mju/samples/demo_scene.cpp)
+    target_include_directories(mju_samples PUBLIC mju)
+    target_link_libraries(mju_samples PUBLIC mju_core)
 endif()
 
 if(ANDROID)
