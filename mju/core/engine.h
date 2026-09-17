@@ -58,8 +58,6 @@ private:
     int height_ = 0;
     bool initialized_ = false;
     unsigned long long frame_count_ = 0;
-    EntityId demo_entity_ = 0;
-    EntityId button_entity_ = 0;
     Scene* active_scene_ = nullptr;
 
     SceneManager scene_manager_;
