@@ -1,5 +1,6 @@
 #pragma once
 #include "../core/scene.h"
+#include "../project/project.h"
 #include "undo.h"
 #include "../assets/asset_manager.h"
 #include "../tilemap/tilemap.h"
@@ -11,10 +12,14 @@ enum class Tool { Select, Move, Scale, Rotate };
 
 struct ProjectSettings {
     std::string name = "My MJU Game";
-    std::string main_scene = "main.mju";
+    std::string main_scene = "main.mjuscene";
     int width = 1280;
     int height = 720;
+    int target_fps = 60;
     bool portrait = true;
+    bool vsync = true;
+    int max_entities = 65536;
+    std::string renderer = "gles2";
 };
 
 class EditorState {
@@ -46,6 +51,14 @@ public:
     bool undo();
     bool redo();
     void checkpoint();
+
+    void begin_transform_edit();
+    bool set_transform(EntityId id, float x, float y);
+    void end_transform_edit();
+    bool transform_edit_active() const { return transform_edit_active_; }
+
+private:
+    bool transform_edit_active_ = false;
 };
 
 bool save_project(const ProjectSettings& settings, const std::string& path);
