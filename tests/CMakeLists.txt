@@ -1,3 +1,5 @@
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
+
 add_executable(mju_core_test core_test.cpp)
 target_include_directories(mju_core_test PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries(mju_core_test PRIVATE mju_core)
@@ -34,7 +36,7 @@ target_link_libraries(mju_resources_pack_test PRIVATE mju_core)
 add_test(NAME mju_resources_pack_test COMMAND mju_resources_pack_test)
 
 add_executable(mju_ui_layout_test ui_layout_test.cpp)
-target_include_directories(mju_ui_layout_test PRIVATE ${CMAKE_SOURCE_DIR})
+target_include_directories(mju_ui_layout_test PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(mju_ui_layout_test PRIVATE mju_core)
 add_test(NAME mju_ui_layout_test COMMAND mju_ui_layout_test)
 
@@ -42,3 +44,6 @@ add_executable(mju_editor_project_test editor_project_test.cpp)
 target_include_directories(mju_editor_project_test PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(mju_editor_project_test PRIVATE mju_core)
 add_test(NAME mju_editor_project_test COMMAND mju_editor_project_test)
+
+add_test(NAME mju_jni_contract_test
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/jni_contract_test.py)
